@@ -3,9 +3,9 @@ import argparse
 import os
 from pathlib import Path
 import sys
-from .runtime import app_directory, frozen
+from .runtime import DESKTOP_ID, app_directory, frozen
 
-FILENAME = "com.whitehorseit.WITSDeploy.desktop"
+FILENAME = DESKTOP_ID + ".desktop"
 
 
 def quote_argument(value):

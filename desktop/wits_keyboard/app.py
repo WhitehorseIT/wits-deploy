@@ -1157,6 +1157,9 @@ class MainWindow(QMainWindow):
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("WITS Deploy")
+    # Match the installed desktop entry so Plasma can group and pin the app.
+    from .runtime import DESKTOP_ID
+    app.setDesktopFileName(DESKTOP_ID)
     app.setOrganizationName("Whitehorse IT Solutions")
     window = MainWindow()
     window.show()

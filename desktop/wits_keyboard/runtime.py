@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 WORKER_NAME = "WITS-Deploy-Worker"
+DESKTOP_ID = "com.whitehorseit.WITSDeploy"
 
 
 def frozen():

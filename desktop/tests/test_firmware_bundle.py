@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -88,7 +89,8 @@ class IncludedFirmwareUiTests(BundleFixture, unittest.TestCase):
     def test_usb_defaults_to_included_release_without_selecting_a_model_or_starting(self):
         with patch("wits_keyboard.usb_flash_dialog.bundled_manifest", return_value=self.manifest):
             dialog = UsbFlashDialog()
-        self.assertEqual(dialog.manifest, str(self.manifest))
+        # Compare file identity: Windows temp paths may use 8.3 short names.
+        self.assertTrue(os.path.samefile(dialog.manifest, self.manifest))
         self.assertIn("Included firmware test", dialog.description.text())
         self.assertIsNone(dialog.model.currentData())
         self.assertFalse(dialog._busy())

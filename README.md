@@ -61,8 +61,8 @@ See the [desktop guide](desktop/README.md) for pairing and controls.
 For a Linux app-menu shortcut, run `bash desktop/INSTALL-LAUNCHER-LINUX.sh` from
 the repository root. Sign-in launch is optional via `--autostart`.
 Windows/Linux standalone build scripts and a GitHub Actions workflow are
-prepared, including all three models' firmware; native artifacts await their
-first successful build. See
+prepared, including all three models' firmware. The Linux native package has
+passed local startup checks; Windows builds remain pending. See
 [shortcuts and native packaging](docs/DESKTOP-PACKAGING.md).
 
 ## Firmware updates

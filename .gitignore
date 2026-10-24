@@ -20,6 +20,7 @@ dist/
 *.zip
 *.tar.gz
 /WITS Deploy.desktop
+/releases/desktop/*/native/
 
 # Runtime state, diagnostics and credentials
 logs/

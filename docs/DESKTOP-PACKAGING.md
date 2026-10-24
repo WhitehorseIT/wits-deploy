@@ -1,10 +1,14 @@
 # App shortcuts and standalone builds
 
 App **0.2.0-dev11** adds Linux shortcuts and Windows/Linux native build tooling.
-The existing Python app still runs normally. No standalone binary has been
-produced or physically tested at this checkpoint: the current tool session
-cannot fetch build dependencies, and its GitHub connector cannot access the
-org repository. Build scripts and automation are prepared for the first run.
+The Linux standalone build now exists and passed its offline startup check.
+Its archive and all extracted file hashes were verified. The extracted app is
+in `releases/desktop/0.2.0-dev11/native/WITS-Deploy-0.2.0-dev11-Linux-x86_64/`.
+The project-root launcher points to it. For its menu entry, run that folder's
+`INSTALL-LAUNCHER.sh`; KDE can pin the menu entry to its Task Manager.
+The original Python app remains usable. Windows native builds and physical
+Bluetooth/USB tests of the native package remain pending. The current GitHub
+connector cannot access the org repository; CI must be triggered after pushing.
 
 ## One-click launching now
 

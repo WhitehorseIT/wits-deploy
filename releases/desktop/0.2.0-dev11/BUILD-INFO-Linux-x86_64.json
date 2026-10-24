@@ -1,0 +1,23 @@
+{
+  "app_version": "0.2.0-dev11",
+  "firmware_version": "0.2.0-dev11",
+  "target": "Linux-x86_64",
+  "python": "3.14.4",
+  "build_platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "smoke_test": {
+    "version": "0.2.0-dev11",
+    "frozen": true,
+    "ok": true,
+    "serial_ports": 33,
+    "firmware_version": "0.2.0-dev11",
+    "helper": {
+      "esptool": "5.4.0",
+      "serial": "3.5",
+      "boards": [
+        "tqtpro",
+        "waveshare7",
+        "waveshare147"
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QLabel,
                               QProgressBar, QPushButton, QVBoxLayout)
 from .firmware_update import BOARD_NAMES, load_release
 from .logging_config import safe_error
+from .firmware_bundle import bundled_manifest
 
 
 class FirmwareDialog(QDialog):
@@ -55,15 +56,24 @@ class FirmwareDialog(QDialog):
         layout.addLayout(row)
         self.progress.connect(self._progress)
         self.finished_upload.connect(self._finished)
+        try:
+            path = bundled_manifest()
+            if path:
+                self._load_manifest(path, included=True)
+        except Exception as error:
+            self.status.setText("Included firmware unavailable: " + safe_error(error))
 
     def _choose(self):
         path, _ = QFileDialog.getOpenFileName(self, "Choose update manifest", "", "WITS OTA manifest (*.ota.json)")
         if not path:
             return
+        self._load_manifest(path)
+
+    def _load_manifest(self, path, included=False):
         try:
             self.image = load_release(path)
             models = ", ".join(BOARD_NAMES[target.board] for target in self.image.targets)
-            self.image_label.setText(f"Release {self.image.version} · {models}\n"
+            self.image_label.setText(f"{'Included firmware' if included else 'Release'} {self.image.version} · {models}\n"
                                      "The app will select and verify this board's matching binary before uploading.")
             self.upload.setEnabled(True)
         except Exception as error:

@@ -12,8 +12,9 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 from . import __version__
+from .runtime import log_directory
 
-LOG_DIRECTORY = Path(__file__).resolve().parents[1] / "logs"
+LOG_DIRECTORY = log_directory()
 LOG_PATH = LOG_DIRECTORY / "wits-keyboard-debug.log"
 
 _SENSITIVE_MARKERS = (
@@ -122,7 +123,7 @@ def configure_logging() -> Path:
     logger = logging.getLogger("wits_keyboard.startup")
     logger.info("=" * 72)
     logger.info(
-        "Starting WITS Keyboard Controller version=%s python=%s platform=%s",
+        "Starting WITS Deploy version=%s python=%s platform=%s",
         __version__,
         platform.python_version(),
         platform.platform(),

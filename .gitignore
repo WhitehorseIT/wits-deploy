@@ -18,6 +18,8 @@ dist/
 *.elf
 *.map
 *.zip
+*.tar.gz
+/WITS Deploy.desktop
 
 # Runtime state, diagnostics and credentials
 logs/

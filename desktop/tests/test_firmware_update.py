@@ -336,6 +336,12 @@ class FirmwareDialogTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
+    def setUp(self):
+        from unittest.mock import patch
+        mock = patch("wits_keyboard.firmware_dialog.bundled_manifest", return_value=None)
+        mock.start()
+        self.addCleanup(mock.stop)
+
     def test_upload_uses_runner_contract_and_tracks_cancellation(self):
         runner = create_autospec(AsyncRunner, instance=True)
         dialog = FirmwareDialog(runner, Mock(), "A")

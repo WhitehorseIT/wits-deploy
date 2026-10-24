@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from .firmware_update import load_release
+from .runtime import frozen, worker_command
 
 LAYOUTS = {"tqtpro": (4, (0x10000, 0x200000), 0x1f0000),
            "waveshare7": (8, (0x10000, 0x340000), 0x330000),
@@ -51,6 +52,8 @@ def update_plan(otadata: bytes):
 
 
 def esptool_prefix():
+    if frozen():
+        return worker_command("esptool")
     if importlib.util.find_spec("esptool"):
         return [sys.executable, "-m", "esptool"]
     # Developer checkout fallback; packaged Windows/Linux setups install the
@@ -71,7 +74,8 @@ class SerialFlasher:
         self.first = False
         output = []
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              stdin=subprocess.DEVNULL, text=True, errors="replace") as process:
+                              stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+                              creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0) as process:
             for line in process.stdout:
                 print(line, end="", flush=True)
                 output.append(line)

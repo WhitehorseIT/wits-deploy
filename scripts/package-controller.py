@@ -26,9 +26,11 @@ def main():
     entries = {"README-FIRST.txt": (release / "README-FIRST.txt").read_bytes()}
     paths = [source / name for name in (
         "run.py", "requirements.txt", "requirements-release.txt", "README.md",
-        "SETUP-WINDOWS.cmd", "START-WINDOWS.cmd", "SETUP-LINUX.sh", "START-LINUX.sh")]
+        "SETUP-WINDOWS.cmd", "START-WINDOWS.cmd", "SETUP-LINUX.sh", "START-LINUX.sh",
+        "INSTALL-LAUNCHER-LINUX.sh")]
     paths += sorted((source / "wits_keyboard").glob("*.py"))
     paths += sorted((source / "tests").glob("*.py"))
+    paths.append(source / "packaging" / "firmware-release.txt")
     for path in paths:
         if not path.is_file() or path.is_symlink():
             raise RuntimeError(f"Expected regular file: {path}")

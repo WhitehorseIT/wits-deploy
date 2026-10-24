@@ -170,7 +170,7 @@ class AsyncRunner:
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle(f"WITS Keyboard Controller {__version__}")
+        self.setWindowTitle(f"WITS Deploy {__version__}")
         self.resize(1180, 760)
 
         self.bridge = UiBridge()
@@ -1156,7 +1156,7 @@ class MainWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("WITS Keyboard Controller")
+    app.setApplicationName("WITS Deploy")
     app.setOrganizationName("Whitehorse IT Solutions")
     window = MainWindow()
     window.show()

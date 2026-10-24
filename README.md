@@ -27,7 +27,7 @@ provide MicroSD-backed USB storage.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | First bring-up build; hardware validation pending |
 
-Current firmware: **0.2.0-dev11**; desktop app: **0.2.0-dev10**. Bluetooth OTA has been tested on
+Current firmware and desktop app: **0.2.0-dev11**. Bluetooth OTA has been tested on
 the T-QT Pro and 7-inch boards. The 1.47-inch port, USB update/factory installation
 and interrupted-update recovery need hardware validation.
 
@@ -57,6 +57,13 @@ Put the board in HID mode and pair using the PIN on its screen. On Windows,
 complete the initial pairing in Bluetooth Settings first. Connect in the app,
 select the intended target, and physically arm the board when ready to type.
 See the [desktop guide](desktop/README.md) for pairing and controls.
+
+For a Linux app-menu shortcut, run `bash desktop/INSTALL-LAUNCHER-LINUX.sh` from
+the repository root. Sign-in launch is optional via `--autostart`.
+Windows/Linux standalone build scripts and a GitHub Actions workflow are
+prepared, including all three models' firmware; native artifacts await their
+first successful build. See
+[shortcuts and native packaging](docs/DESKTOP-PACKAGING.md).
 
 ## Firmware updates
 

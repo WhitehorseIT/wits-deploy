@@ -15,7 +15,8 @@ case "$target" in
   *) echo "Unknown board target: $target" >&2; exit 1 ;;
 esac
 build_dir="$project_dir/.pio/build/$target"
-release_dir="$project_dir/releases/firmware/$version/$target"
+release_root=${WITS_RELEASE_ROOT:-$project_dir/releases/firmware}
+release_dir="$release_root/$version/$target"
 pio="$project_dir/.venv-pio/bin/pio"
 esptool=${ESPTOOL:-$HOME/.platformio/packages/tool-esptool/esptool}
 boot_app0=${BOOT_APP0:-$HOME/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin}
@@ -68,7 +69,7 @@ python3 "$project_dir/scripts/make-ota-manifest.py" "$release_dir/$image_name.ap
 
 echo "Release bundle created in $release_dir"
 
-catalog_dir="$project_dir/releases/firmware/$version"
+catalog_dir="$release_root/$version"
 if [[ -f "$catalog_dir/tqtpro/WITS-Keyboard-$version.ota.json" &&
       -f "$catalog_dir/waveshare7/WITS-Keyboard-Waveshare7-$version.ota.json" &&
       -f "$catalog_dir/waveshare147/WITS-Keyboard-Waveshare147-$version.ota.json" ]]; then

@@ -1,5 +1,4 @@
 """USB install/update UI, available even when no BLE board is connected."""
-import sys
 import logging
 from pathlib import Path
 from PySide6.QtCore import QProcess, QProcessEnvironment, Qt
@@ -7,6 +6,8 @@ from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel,
     QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QVBoxLayout)
 from .firmware_update import BOARD_NAMES, load_release
+from .runtime import app_directory, worker_command
+from .firmware_bundle import bundled_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ class UsbFlashDialog(QDialog):
         layout = QVBoxLayout(self)
         hint = QLabel("Safely eject writable storage and cancel any OTA transfer first. Close serial consoles, "
                       "connect the board's programming USB port, and enter FLASH/bootloader mode. "
-                      "For the Waveshare use UART. Blank boards do not need Bluetooth pairing.")
+                      "The 7-inch board uses UART; the 1.47-inch board uses its single USB-C port. "
+                      "Blank boards do not need Bluetooth pairing.")
         hint.setWordWrap(True)
         layout.addWidget(hint)
         self.model = QComboBox()
@@ -66,6 +68,12 @@ class UsbFlashDialog(QDialog):
         row.addWidget(self.close_button)
         layout.addLayout(row)
         self._ports()
+        try:
+            path = bundled_manifest()
+            if path:
+                self._load_manifest(path, included=True)
+        except Exception as error:
+            self.description.setText("Included firmware unavailable: " + str(error))
 
     def _ports(self):
         from PySide6.QtSerialPort import QSerialPortInfo
@@ -79,10 +87,13 @@ class UsbFlashDialog(QDialog):
     def _choose(self):
         path, _ = QFileDialog.getOpenFileName(self, "Choose release", "", "WITS OTA manifest (*.ota.json)")
         if not path: return
+        self._load_manifest(path)
+
+    def _load_manifest(self, path, included=False):
         try:
             release = load_release(path)
             self.manifest = str(Path(path).resolve())
-            self.description.setText(f"Release {release.version}: " + ", ".join(BOARD_NAMES[t.board] for t in release.targets))
+            self.description.setText(f"{'Included firmware' if included else 'Release'} {release.version}: " + ", ".join(BOARD_NAMES[t.board] for t in release.targets))
         except Exception as error:
             self.manifest = None
             self.description.setText(str(error))
@@ -101,17 +112,23 @@ class UsbFlashDialog(QDialog):
                 "Install the factory image? This replaces the flash layout and clears existing board pairings/settings.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
             if answer != QMessageBox.StandardButton.Yes: return
+        args = ["--port", port, "--board", board, "--manifest", self.manifest]
+        if self.mode.currentData(): args.append("--factory")
+        try:
+            command = worker_command("usb-flash", *args)
+        except RuntimeError as error:
+            self.description.setText(str(error))
+            return
         self.log.clear()
         self.bar.setRange(0, 0)
         for widget in (self.model, self.port, self.refresh, self.mode, self.choose, self.flash, self.close_button):
             widget.setEnabled(False)
-        args = ["-u", "-m", "wits_keyboard.usb_flash", "--port", port, "--board", board, "--manifest", self.manifest]
-        if self.mode.currentData(): args.append("--factory")
-        self.process.setWorkingDirectory(str(Path(__file__).resolve().parents[1]))
+        self.process.setWorkingDirectory(str(app_directory()))
         environment = QProcessEnvironment.systemEnvironment()
         environment.insert("PYTHONIOENCODING", "utf-8")
+        environment.insert("PYTHONUNBUFFERED", "1")
         self.process.setProcessEnvironment(environment)
-        self.process.start(sys.executable, args)
+        self.process.start(command[0], command[1:])
 
     def _output(self):
         self.log.moveCursor(QTextCursor.MoveOperation.End)

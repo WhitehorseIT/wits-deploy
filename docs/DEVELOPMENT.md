@@ -95,3 +95,12 @@ Existing filenames retain the `WITS-Keyboard` prefix.
 
 See the [release layout](../releases/README.md) and
 [update/recovery guide](OTA-UPDATES.md) for distribution and flashing details.
+
+## Native desktop packages
+
+Use `bash scripts/build-desktop-linux.sh` on Linux or
+`scripts\build-desktop-windows.cmd` on Windows. The app includes the complete
+firmware release configured in `desktop/packaging/firmware-release.txt`; supply
+`--firmware PATH_TO_COMMON_JSON` for another extracted complete release.
+The GitHub Desktop binaries workflow builds firmware once and includes it
+in Windows/Linux artifacts. See [native packaging](DESKTOP-PACKAGING.md).

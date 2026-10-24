@@ -20,7 +20,13 @@ python3 -m venv .venv
 
 On Windows, extract the release and run `SETUP-WINDOWS.cmd`, then
 `START-WINDOWS.cmd`. On Linux, run `bash SETUP-LINUX.sh`, then
-`bash START-LINUX.sh`. A standalone Windows executable has not been built.
+`bash START-LINUX.sh`. Run `bash INSTALL-LAUNCHER-LINUX.sh` for an app-menu
+shortcut; append `--autostart` only if sign-in launching is wanted.
+
+App dev11 includes native Windows/Linux packaging support and a GitHub Actions
+build workflow. Standalone executables await their first successful build;
+see [the build and launcher guide](../docs/DESKTOP-PACKAGING.md). Source setup
+remains available while those candidates are tested.
 
 ## Pairing
 

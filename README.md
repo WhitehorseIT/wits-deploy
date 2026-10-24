@@ -27,7 +27,7 @@ provide MicroSD-backed USB storage.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | First bring-up build; hardware validation pending |
 
-Current development version: **0.2.0-dev10**. Bluetooth OTA has been tested on
+Current firmware: **0.2.0-dev11**; desktop app: **0.2.0-dev10**. Bluetooth OTA has been tested on
 the T-QT Pro and 7-inch boards. The 1.47-inch port, USB update/factory installation
 and interrupted-update recovery need hardware validation.
 
@@ -38,7 +38,8 @@ The newest hardware target is the
 with a 172 × 320 capacitive touchscreen and MicroSD slot. Dev10 includes a
 dedicated display/touch adapter, USB keyboard and storage, Bluetooth OTA, and
 USB flashing through the same desktop app. Its first physical tests are pending;
-see the [setup and test guide](docs/boards/WAVESHARE147.md).
+see the [setup and test guide](docs/boards/WAVESHARE147.md). Dev11 uses a
+320 × 172 landscape layout for its case, with USB-C on the right.
 
 ## Get started
 

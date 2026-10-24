@@ -135,7 +135,7 @@ bool readTouch(bool &pressed, uint16_t &x, uint16_t &y) {
   uint16_t rawY = (uint16_t(report[4] & 0x0f) << 8) | report[5];
   auto contact = Touch147::decode(report[1] & 0x0f, rawX, rawY);
   pressed = contact.pressed;
-  // Vendor portrait rotation zero mirrors X; display RAM has a 34-column offset.
+  // Coordinates already use the LCD's landscape rotation.
   x = contact.x;
   y = contact.y;
   return true;

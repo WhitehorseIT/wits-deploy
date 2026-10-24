@@ -1,7 +1,7 @@
 # Waveshare ESP32-S3-Touch-LCD-1.47
 
 The `waveshare147` target is a **first hardware bring-up build** in firmware
-0.2.0-dev10. It compiles and has automated checks; display, touch, USB storage,
+0.2.0-dev11. It compiles and has automated checks; display, touch, USB storage,
 Bluetooth and update behavior still need testing on this board.
 
 ## Hardware
@@ -20,9 +20,15 @@ The non-touch S3 LCD board and the C6 board have different hardware.
 | Native USB D− / D+ | 19 / 20 |
 
 The LCD uses HSPI/SPI3 and SD uses SPI2, so the two drivers do not compete
-for the same SPI controller. The LCD's RAM column offset is 34. Touch uses
-I²C address 0x63; portrait coordinates mirror X, following the vendor example.
-Both display orientation and touch alignment need checking on the first unit.
+for the same SPI controller. The LCD's RAM column offset is 34. Dev11 uses rotation 1 with a 320 × 172
+landscape layout, configured for USB-C on the right as requested for the case.
+Touch uses I²C address 0x63; raw portrait coordinates map to landscape as
+`x = rawY, y = rawX`, matching that LCD rotation. Status and PIN occupy the
+left panel; PAIR/STOP, ARM/DISARM/CLEAR and PROG occupy the right panel.
+Both physical orientation and touch alignment need checking on the first unit.
+The user's saved MakerWorld page and `ESP32_S3_147_Complete_Plate_X1C_PLA.3mf`
+were inspected for the landscape case/stand arrangement. Case assembly and
+clearance have not been physically verified.
 
 Pin assignments come from the [manufacturer schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.47/ESP32-S3-Touch-LCD-1.47-Schematic.pdf).
 LCD reset is **GPIO40**, distinct from the touch reset on GPIO47; one example
@@ -35,7 +41,7 @@ and [resources](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47/Resources-And
 
 Use the board's **single USB-C connector**. If needed, hold BOOT, press and
 release RESET, then release BOOT to enter the ROM loader. Close serial monitors.
-From the repository root on Linux, with the complete dev10 release available:
+From the repository root on Linux, with the complete dev11 release available:
 
 ```bash
 .venv-pio/bin/python scripts/flash-waveshare147.py /dev/ttyACM0
@@ -45,7 +51,7 @@ Replace the port if necessary. The helper verifies file hashes, requires an
 ESP32-S3 and exactly 16 MB flash, installs the complete factory image at zero,
 and verifies the written contents. This clears existing board settings.
 Press RESET after success. Expect a blue **PROGRAM** screen and version
-**0.2.0-dev10**. This is the first physical test, so begin without a MicroSD card.
+**0.2.0-dev11**. This is the first physical test, so begin without a MicroSD card.
 
 Alternatively, use desktop app dev10 **USB Flash/Update…**, select
 **Waveshare 1.47-inch touch**, the board's serial port and the common release
@@ -68,7 +74,8 @@ out and cancel the gesture. The PIN and pairing countdown occupy separate lines.
 
 The BOOT button is a fallback: hold two seconds and release to enter HID from
 PROGRAM or open pairing from HID. Pressing it in HID immediately stops typing.
-Release is required before the mode switch so GPIO0 is not held low at reset.
+Release is required before the mode switch so GPIO0 is not held low at reset. Dev11 places FLASH above HID in the right
+panel in PROGRAM; in HID the full-width PROG button is below the other controls.
 
 Check the display, four touch corners, hold bars and cancel behavior first.
 Then test pairing, PIN visibility, Ping, Identify, physical ARM, sample text,
@@ -84,6 +91,12 @@ unit rather than assuming USB flash-drive speeds.
 
 ## Updates and build
 
+For a working dev10 board, test the app update path: enter FLASH, choose
+**USB Flash/Update → Update working board**, the new dev11 common JSON,
+Waveshare 1.47-inch touch and its serial port. This keeps the existing WITS
+partition layout and pairings. Desktop app dev10 remains compatible; no new
+app package is needed for the display rotation.
+
 The model reports `waveshare147`, with Bluetooth OTA target code 3. OTA uses the
 inactive app slot and validates size/SHA-256 before selecting it. The existing
 T-QT Pro and Waveshare7 target codes remain unchanged. A successful update
@@ -97,9 +110,9 @@ overwrite app0 after OTA without checking which slot is selected.
 
 ```bash
 .venv-pio/bin/pio run -e waveshare147
-bash scripts/build-release.sh 0.2.0-dev10 waveshare147
+bash scripts/build-release.sh 0.2.0-dev11 waveshare147
 ```
 
-Generated files live under `releases/firmware/0.2.0-dev10/waveshare147/`.
+Generated files live under `releases/firmware/0.2.0-dev11/waveshare147/`.
 The app's common JSON chooses the binary by model, not by a device's friendly
 name. Every unit of this exact model uses the same binary.

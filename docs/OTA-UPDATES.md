@@ -1,6 +1,6 @@
 # Firmware updates
 
-Current firmware and desktop app: **0.2.0-dev10**. Use the app buttons
+Current firmware: **0.2.0-dev11**; desktop app: **0.2.0-dev10**. Use the app buttons
 **OTA Update…** and **USB Flash/Update…**. Dev10 adds the Waveshare 1.47-inch
 bring-up target; its physical validation is pending. Existing dev8/dev9 boards
 retain the same Bluetooth service layout and board codes.
@@ -8,7 +8,7 @@ retain the same Bluetooth service layout and board codes.
 ## One manifest, three board models
 
 Extract the entire firmware ZIP, preserving folders, then select
-`releases/firmware/0.2.0-dev10/WITS-Keyboard-Release-0.2.0-dev10.ota.json`.
+`releases/firmware/0.2.0-dev11/WITS-Keyboard-Release-0.2.0-dev11.ota.json`.
 It describes app and factory images for `tqtpro`, `waveshare7` and
 `waveshare147`. Each model uses a different binary; all units of the same
 model share one binary. The Bluetooth updater reads authenticated board info

@@ -74,7 +74,10 @@ void frame(const char *headline, uint16_t color=BLUE, bool controls=false) {
   gfx->fillRect(0,0,Touch147::WIDTH,24,DARK);
   gfx->setTextSize(2); gfx->setTextColor(WHITE);
   gfx->setCursor(6,4); gfx->print("WITS DEPLOY");
-  text(Firmware::VERSION,8,1,MUTED,270);
+  // The version uses the same readable 2x font as the title, flush right.
+  constexpr int versionWidth=(sizeof(Firmware::VERSION)-1)*12;
+  static_assert(versionWidth<=Touch147::WIDTH-156,"Firmware version overlaps the header title");
+  text(Firmware::VERSION,4,2,WHITE,Touch147::WIDTH-6-versionWidth/2);
   text(headline,34,2,WHITE,controls?Touch147::CONTENT_WIDTH/2:Touch147::WIDTH/2);
 }
 uint32_t duration(Action action) {
@@ -108,7 +111,7 @@ void button(int index,const char *label,uint16_t color,uint16_t ink=WHITE) {
 }
 void countdown(uint32_t seconds) {
   char value[8]; snprintf(value,sizeof(value),"%2lus",static_cast<unsigned long>(seconds));
-  gfx->setTextSize(2); gfx->setTextColor(WHITE,background); gfx->setCursor(56,108); gfx->print(value);
+  gfx->setTextSize(2); gfx->setTextColor(WHITE,background); gfx->setCursor(56,130); gfx->print(value);
 }
 Action physicalButton() {
   bool pressed=digitalRead(0)==LOW;
@@ -179,18 +182,25 @@ void update(bool hidMode,bool connected,bool authenticated,bool pairing,bool isA
         connected&&!secured?"CONNECTING":connected?"DISARMED":"OFFLINE",armed?RED:secured?TEAL:BLUE,true);
   if(showPin){
     char pin[7];snprintf(pin,sizeof(pin),"%06lu",static_cast<unsigned long>(BleTransport::passkey()));
-    text(pin,62,3);text("Enter PIN on PC",91);if(pairing)countdown(seconds);
+    text(pin,62,3);text("Enter PIN",92,2);text("on PC",112,2);if(pairing)countdown(seconds);
   }else if(identifying){
-    // Two lines at most, keeping identifiers out of the button area.
-    char first[23]={};strncpy(first,alias[0]?alias:BleTransport::deviceId(),22);
-    text(first,67,1);if(strlen(alias)>22)text(alias+22,84,1);
+    // Three readable lines fit the full 32-character alias in the left panel.
+    const char *label=alias[0]?alias:BleTransport::deviceId();
+    for(size_t offset=0;offset<strlen(label);offset+=12){
+      char line[13]={};strncpy(line,label+offset,12);
+      text(line,64+(offset/12)*22,2);
+    }
   }else{
     String id=String("ID ")+BleTransport::deviceId();text(id.c_str(),67,2);
-    text(!hid?"Hold HID to start":secured?"Tap ARM to type":"Hold PAIR to connect",102,1,MUTED);
+    const char *first=!BoardHardware::touchAvailable()?"Hold BOOT":!hid?"Hold HID":
+        typing&&armed?"Tap STOP":armed?"Tap DISARM":secured?"Tap ARM":"Hold PAIR";
+    const char *second=!BoardHardware::touchAvailable()?(hid?"to pair":"to start"):
+        !hid?"to start":typing&&armed?"to cancel":armed?"to stop":secured?"to type":"to connect";
+    text(first,96,2);text(second,116,2);
   }
-  text(!hid?"Hold FLASH to update":p.error?"SD ERROR":!p.present?"SD unavailable":
-       !p.exported?"SD EJECTED":p.writable?"SD READ / WRITE":"SD READ ONLY",148,1);
-  if(!BoardHardware::touchAvailable())text("NO TOUCH - use BOOT",132,1,AMBER);
+  text(!BoardHardware::touchAvailable()?"NO TOUCH":!hid?"Hold FLASH":p.error?"SD ERROR":!p.present?"NO SD CARD":
+       !p.exported?"SD EJECTED":p.writable?"SD WRITABLE":"SD READ ONLY",148,2,
+       BoardHardware::touchAvailable()?WHITE:AMBER);
   if(hid){
     button(0,"PAIR",GRAY);button(1,"STOP",WHITE,RED);
     button(2,armed?"DISARM":"ARM",secured?AMBER:GRAY,secured?DARK:MUTED);

@@ -1,8 +1,11 @@
 # Waveshare ESP32-S3-Touch-LCD-1.47
 
-The `waveshare147` target is a **first hardware bring-up build** in firmware
-0.2.0-dev11. It compiles and has automated checks; display, touch, USB storage,
-Bluetooth and update behavior still need testing on this board.
+The `waveshare147` target uses firmware **0.2.0-dev12**. The user confirmed
+pairing and operation on the landscape dev11 build. Dev12 enlarges the version
+label, two-line guidance beneath the ID, pairing instructions, Identify aliases
+and storage status. The PIN/countdown retain separate lines. This font update
+still needs physical inspection; storage and interrupted-update tests remain
+pending. Existing desktop app dev11 can load the dev12 JSON without rebuilding.
 
 ## Hardware
 
@@ -41,7 +44,7 @@ and [resources](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47/Resources-And
 
 Use the board's **single USB-C connector**. If needed, hold BOOT, press and
 release RESET, then release BOOT to enter the ROM loader. Close serial monitors.
-From the repository root on Linux, with the complete dev11 release available:
+From the repository root on Linux, with the complete dev12 release available:
 
 ```bash
 .venv-pio/bin/python scripts/flash-waveshare147.py /dev/ttyACM0
@@ -51,7 +54,7 @@ Replace the port if necessary. The helper verifies file hashes, requires an
 ESP32-S3 and exactly 16 MB flash, installs the complete factory image at zero,
 and verifies the written contents. This clears existing board settings.
 Press RESET after success. Expect a blue **PROGRAM** screen and version
-**0.2.0-dev11**. This is the first physical test, so begin without a MicroSD card.
+**0.2.0-dev12**. This is the first physical test, so begin without a MicroSD card.
 
 Alternatively, use desktop app dev10 **USB Flash/Update…**, select
 **Waveshare 1.47-inch touch**, the board's serial port and the common release
@@ -92,7 +95,7 @@ unit rather than assuming USB flash-drive speeds.
 ## Updates and build
 
 For a working dev10 board, test the app update path: enter FLASH, choose
-**USB Flash/Update → Update working board**, the new dev11 common JSON,
+**USB Flash/Update → Update working board**, the new dev12 common JSON,
 Waveshare 1.47-inch touch and its serial port. This keeps the existing WITS
 partition layout and pairings. Desktop app dev10 remains compatible; no new
 app package is needed for the display rotation.
@@ -110,9 +113,9 @@ overwrite app0 after OTA without checking which slot is selected.
 
 ```bash
 .venv-pio/bin/pio run -e waveshare147
-bash scripts/build-release.sh 0.2.0-dev11 waveshare147
+bash scripts/build-release.sh 0.2.0-dev12 waveshare147
 ```
 
-Generated files live under `releases/firmware/0.2.0-dev11/waveshare147/`.
+Generated files live under `releases/firmware/0.2.0-dev12/waveshare147/`.
 The app's common JSON chooses the binary by model, not by a device's friendly
 name. Every unit of this exact model uses the same binary.

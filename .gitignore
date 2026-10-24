@@ -1,0 +1,47 @@
+# Local Python environments and generated caches
+.venv*/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# PlatformIO and generated distributions
+.pio/
+build/
+dist/
+*.bin
+*.elf
+*.map
+*.zip
+
+# Runtime state, diagnostics and credentials
+logs/
+*.log
+*.log.*
+.env
+.env.*
+!.env.example
+secrets/
+.secrets/
+tunnel-token
+tunnel_token
+*.token
+*.pem
+*.key
+desktop/settings.json
+desktop/settings.local.json
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*~
+*.swp
+core
+core.*

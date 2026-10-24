@@ -1,0 +1,46 @@
+WITS KEYBOARD - WINDOWS FLASHING
+================================
+
+Do not flash a release until Whitehorse IT Solutions identifies it as tested.
+
+Prerequisite (one time):
+  1. Install current Python 3 for Windows and select "Add Python to PATH".
+  2. Open PowerShell and run: py -m pip install esptool
+
+Flash the board:
+  1. If the board has the blue programming screen, hold the left BOOT control
+     for two seconds. Firmware 0.1.0-rc5 and newer will restart directly into
+     the ROM flasher.
+  2. For older firmware, disconnect the board, hold the left/BOOT button while
+     reconnecting USB-C, then release it after two seconds.
+  3. Find its COM port in Windows Device Manager under Ports (COM & LPT).
+  4. Open Command Prompt in this release folder.
+  5. Run:
+
+       flash-windows.cmd COM5 WITS-Keyboard-VERSION.factory.bin
+
+     Replace COM5 and VERSION with the actual values.
+
+  6. Confirm that esptool reports successful verification.
+  7. Unplug and reconnect the board normally.
+
+The factory image contains the bootloader, partition table, boot application,
+and WITS Keyboard firmware. It is written at flash address 0x0.
+
+UPDATING A WORKING BOARD WHILE KEEPING ITS BLUETOOTH BONDS
+
+For rc9-to-rc10 on a working T-QT Pro, use the .app.bin image instead of the
+factory image. It updates only the application at 0x10000, leaving the NVS
+bond storage, bootloader and partition table intact. A factory image writes
+the entire image range, including padding over NVS, and can clear bonds.
+
+With this release's flash-windows.cmd, use:
+  flash-windows.cmd COM5 WITS-Keyboard-VERSION.app.bin
+
+The updated helper recognizes .app.bin and uses offset 0x10000 automatically.
+Older release helpers always use 0x0; do not use them for an app-only image.
+
+Linux (from this project root, after entering bootloader mode):
+  $HOME/.platformio/packages/tool-esptool/esptool --chip esp32s3 --port /dev/ttyACM0 --baud 460800 write-flash 0x10000 releases/VERSION/WITS-Keyboard-VERSION.app.bin
+
+Replace VERSION and the serial port as appropriate, then press RESET.

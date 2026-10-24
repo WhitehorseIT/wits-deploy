@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+    <meta name="theme-color" content="#0b1117">
+    <title>WITS Keyboard Console</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1117'/%3E%3Cpath d='M12 18h8l5 28h-8zm16 0h8l-4 18-4-18zm16 0h8l-5 28h-8z' fill='%235ee0b8'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css?v=2">
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div class="wordmark">WHITEHORSE IT SOLUTIONS</div>
+        <h1>Deployment Keyboard</h1>
+        <p class="lede">Secure deployment text console</p>
+      </header>
+
+      <section class="panel status-panel" aria-labelledby="connection-heading">
+        <div class="panel-heading">
+          <h2 id="connection-heading">Connection</h2>
+          <span id="connection-state" class="state state-offline">Offline</span>
+        </div>
+
+        <dl class="telemetry">
+          <div>
+            <dt>Device</dt>
+            <dd id="device-name">—</dd>
+          </div>
+          <div>
+            <dt>Authenticated</dt>
+            <dd id="auth-state">—</dd>
+          </div>
+          <div>
+            <dt>Armed</dt>
+            <dd id="armed-state">—</dd>
+          </div>
+          <div>
+            <dt>Round trip</dt>
+            <dd id="round-trip">—</dd>
+          </div>
+        </dl>
+
+        <div class="actions">
+          <button id="connect" class="button button-primary">Connect</button>
+          <button id="ping" class="button" disabled>Send encrypted ping</button>
+          <button id="disconnect" class="button button-quiet" disabled>Disconnect</button>
+        </div>
+      </section>
+
+      <section class="panel type-panel" aria-labelledby="typing-heading">
+        <div class="panel-heading">
+          <h2 id="typing-heading">Type on target</h2>
+          <span id="typing-state" class="state state-offline">Idle</span>
+        </div>
+
+        <label class="field-label" for="deployment-text">Text or credential</label>
+        <textarea id="deployment-text" class="secret-input masked" rows="6"
+          maxlength="2048" autocomplete="off" autocapitalize="off"
+          autocorrect="off" spellcheck="false" disabled></textarea>
+
+        <div class="input-options">
+          <label><input id="mask-text" type="checkbox" checked> Mask text</label>
+          <button id="clear-text" class="text-button" disabled>Clear text</button>
+        </div>
+
+        <p class="privacy-note">The page does not save or log submitted text. For passwords, paste immediately before sending and verify the target field is focused.</p>
+
+        <div class="actions">
+          <button id="send-text" class="button button-danger" disabled>Type on target</button>
+          <button id="stop-typing" class="button" disabled>Stop and disarm</button>
+        </div>
+      </section>
+
+      <section class="panel key-panel" aria-labelledby="keys-heading">
+        <h2 id="keys-heading">Special keys</h2>
+        <p class="privacy-note">Each action requires the board to be physically armed and always ends with an all-keys-up report.</p>
+
+        <div class="key-grid" aria-label="Editing and navigation keys">
+          <button class="button key-button" data-key="1">Backspace</button>
+          <button class="button key-button" data-key="2">Delete</button>
+          <button class="button key-button" data-key="3">Enter</button>
+          <button class="button key-button" data-key="4">Tab</button>
+          <button class="button key-button" data-key="5">Escape</button>
+          <button class="button key-button" data-key="10">Home</button>
+          <button class="button key-button" data-key="11">End</button>
+          <button class="button key-button" data-key="12">Page Up</button>
+          <button class="button key-button" data-key="13">Page Down</button>
+          <button class="button key-button" data-key="14">Insert</button>
+          <button class="button key-button" data-key="6">←</button>
+          <button class="button key-button" data-key="8">↑</button>
+          <button class="button key-button" data-key="9">↓</button>
+          <button class="button key-button" data-key="7">→</button>
+        </div>
+
+        <h3>Shortcuts</h3>
+        <div class="key-grid" aria-label="Common keyboard shortcuts">
+          <button class="button key-button" data-key="65" data-modifiers="1">Ctrl+A</button>
+          <button class="button key-button" data-key="67" data-modifiers="1">Ctrl+C</button>
+          <button class="button key-button" data-key="86" data-modifiers="1">Ctrl+V</button>
+          <button class="button key-button" data-key="88" data-modifiers="1">Ctrl+X</button>
+          <button class="button key-button" data-key="90" data-modifiers="1">Ctrl+Z</button>
+          <button class="button key-button" data-key="4" data-modifiers="4">Alt+Tab</button>
+          <button class="button key-button" data-key="82" data-modifiers="8">Win+R</button>
+          <button class="button key-button" data-key="5" data-modifiers="3">Ctrl+Shift+Esc</button>
+        </div>
+
+        <details>
+          <summary>Function keys</summary>
+          <div class="key-grid function-grid" aria-label="Function keys">
+            <button class="button key-button" data-key="16">F1</button>
+            <button class="button key-button" data-key="17">F2</button>
+            <button class="button key-button" data-key="18">F3</button>
+            <button class="button key-button" data-key="19">F4</button>
+            <button class="button key-button" data-key="20">F5</button>
+            <button class="button key-button" data-key="21">F6</button>
+            <button class="button key-button" data-key="22">F7</button>
+            <button class="button key-button" data-key="23">F8</button>
+            <button class="button key-button" data-key="24">F9</button>
+            <button class="button key-button" data-key="25">F10</button>
+            <button class="button key-button" data-key="26">F11</button>
+            <button class="button key-button" data-key="27">F12</button>
+          </div>
+        </details>
+
+        <div class="sas-area">
+          <button id="secure-attention" class="button button-danger" disabled>Ctrl + Alt + Delete</button>
+          <span>Requires an additional confirmation.</span>
+        </div>
+      </section>
+
+      <section class="panel instructions" aria-labelledby="pairing-heading">
+        <h2 id="pairing-heading">Pairing sequence</h2>
+        <ol>
+          <li>Switch the board into HID mode.</li>
+          <li>Hold the left button for two seconds to open its 60-second BLE window.</li>
+          <li>Select <strong>Connect</strong> and choose <strong>WITS Keyboard</strong>.</li>
+          <li>Enter the six-digit PIN shown on the board when the system prompts.</li>
+        </ol>
+        <p class="note">Windows and Linux may require pairing in the operating system's Bluetooth settings first. Keep the board's pairing window open, enter the PIN shown on its display, then return here and select <strong>Connect</strong>.</p>
+        <p class="note">Recovery: hold the right button for five seconds to clear saved board-side BLE bonds and reopen pairing.</p>
+        <p class="note">Typing requires the red <strong>ARMED / READY</strong> screen. Only printable US keyboard characters, Tab, and newline/Enter are accepted in this phase.</p>
+      </section>
+
+      <section class="panel event-panel" aria-labelledby="events-heading">
+        <div class="panel-heading">
+          <h2 id="events-heading">Events</h2>
+          <button id="clear-log" class="text-button">Clear</button>
+        </div>
+        <ol id="event-log" class="event-log" aria-live="polite"></ol>
+      </section>
+    </main>
+
+    <script src="app.js?v=2"></script>
+  </body>
+</html>

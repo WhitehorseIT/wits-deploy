@@ -1,0 +1,1 @@
+26464ecdcfb11df7f87585fc9391dc934acbac37865f3e132cedee497867b7b0  WITS-Keyboard-0.1.0-rc3.factory.bin

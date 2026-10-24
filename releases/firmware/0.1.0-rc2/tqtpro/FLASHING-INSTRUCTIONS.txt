@@ -1,0 +1,26 @@
+WITS KEYBOARD - WINDOWS FLASHING
+================================
+
+Do not flash a release until Whitehorse IT Solutions identifies it as tested.
+
+Prerequisite (one time):
+  1. Install current Python 3 for Windows and select "Add Python to PATH".
+  2. Open PowerShell and run: py -m pip install esptool
+
+Flash the board:
+  1. Disconnect the T-QT Pro.
+  2. Hold the left/BOOT button while reconnecting USB-C.
+  3. Release the button after two seconds.
+  4. Find its COM port in Windows Device Manager under Ports (COM & LPT).
+  5. Open Command Prompt in this release folder.
+  6. Run:
+
+       flash-windows.cmd COM5 WITS-Keyboard-VERSION.factory.bin
+
+     Replace COM5 and VERSION with the actual values.
+
+  7. Confirm that esptool reports successful verification.
+  8. Unplug and reconnect the board normally.
+
+The factory image contains the bootloader, partition table, boot application,
+and WITS Keyboard firmware. It is written at flash address 0x0.

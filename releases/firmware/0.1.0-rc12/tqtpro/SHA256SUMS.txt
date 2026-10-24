@@ -1,0 +1,2 @@
+88e628b2780a1389b3f401365abfa1ed2a512e5579fbb89f04020a25029068a7  WITS-Keyboard-0.1.0-rc12.factory.bin
+1621eb39e06b044b39d9d49b4e48bad2bb6bdaf6ca67de368f3a866c6a4a7ac5  WITS-Keyboard-0.1.0-rc12.app.bin

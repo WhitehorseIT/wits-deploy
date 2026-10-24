@@ -112,3 +112,9 @@ The 1.47-inch board uses its single USB-C connector for both roles.
 Git tracks source, documentation, release manifests, and checksums. Generated
 binaries, ZIPs, environments, and runtime logs are excluded. A source clone
 needs firmware built locally or supplied as a release bundle before flashing.
+
+## License and security
+
+WITS Deploy is released under the [MIT License](LICENSE). Third-party components
+keep their own licenses. To report a vulnerability, see the
+[security policy](SECURITY.md).

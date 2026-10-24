@@ -99,8 +99,8 @@ Tracked release metadata and prior binary releases are not overwritten. The
 included firmware version must match `src/firmware_version.h`. CI generates
 its own build metadata/checksums, so freshly compiled images may differ from
 previous local builds. It uploads the included firmware and two desktop artifacts
-with their archive checksums; it does not publish a GitHub Release or contact
-The tester automatically. Download the artifact and extract the inner package.
+with their archive checksums; it does not publish a GitHub Release or send the
+builds to anyone. Download the artifact and extract the inner package.
 
 The Ubuntu 22.04 runner establishes a more useful baseline than building only
 on the newest Kubuntu. Linux bundles still depend on the host's glibc and

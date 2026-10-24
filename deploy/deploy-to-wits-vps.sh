@@ -2,8 +2,8 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-SSH_CONFIG="$HOME/.ssh/config"
-REMOTE_HOST="wits-vps"
+SSH_CONFIG="${WITS_SSH_CONFIG:-$HOME/.ssh/config}"
+REMOTE_HOST="${WITS_DEPLOY_HOST:-wits-vps}"
 REMOTE_DIR="services/wits-keyboard"
 REMOTE_ARCHIVE="/tmp/wits-keyboard-deploy.tar.gz"
 TEMP_DIR="$(mktemp -d)"

@@ -27,3 +27,6 @@ bash deploy/deploy-to-wits-vps.sh
 
 The first run prompts invisibly for the copied Docker command or tunnel token.
 Later deployments reuse the protected token file on the VPS.
+
+The SSH host alias defaults to `wits-vps` and the SSH config to `~/.ssh/config`.
+Override them with `WITS_DEPLOY_HOST` and `WITS_SSH_CONFIG` if yours differ.

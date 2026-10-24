@@ -104,7 +104,12 @@ def main():
     clean_environment = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     clean_environment.pop("PYTHONPATH", None)
     clean_environment.pop("PYTHONHOME", None)
-    run([executable, "--smoke-test", report], cwd=build, env=clean_environment, timeout=90)
+    try:
+        run([executable, "--smoke-test", report], cwd=build, env=clean_environment, timeout=90)
+    except subprocess.CalledProcessError:
+        # The check records its own failure reason; show it in the build log.
+        print(report.read_text() if report.is_file() else "The startup check wrote no report.", file=sys.stderr)
+        raise
     checked = json.loads(report.read_text())
     if not checked.get("ok") or not checked.get("frozen"):
         raise RuntimeError(f"Standalone startup check failed: {checked}")

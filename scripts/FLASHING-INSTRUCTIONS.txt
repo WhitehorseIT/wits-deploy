@@ -1,61 +1,32 @@
-WITS KEYBOARD - WINDOWS FLASHING
-================================
+WITS DEPLOY — USB FLASHING
 
-Do not flash a release until Whitehorse IT Solutions identifies it as tested.
+Use desktop USB Flash/Update with the common release JSON whenever possible.
+It verifies model flash capacity, partition layout and image hashes. Select
+Install blank board/factory recovery for first installation; this clears
+existing board settings. Update working board writes/verifies the inactive
+slot before changing boot selection and preserves pairings.
 
-Prerequisite (one time):
-  1. Install current Python 3 for Windows and select "Add Python to PATH".
-  2. Open PowerShell and run: py -m pip install esptool
+The 1.47-inch target in dev10 is a hardware bring-up build, not production
+validated. Read this model folder's README-FIRST.txt for the exact board and
+first-test sequence. Do not use another model's binary.
 
-Flash the board:
-  1. If the board has the blue programming screen, hold the left BOOT control
-     for two seconds. Firmware 0.1.0-rc5 and newer will restart directly into
-     the ROM flasher.
-  2. For older firmware, disconnect the board, hold the left/BOOT button while
-     reconnecting USB-C, then release it after two seconds.
-  3. Find its COM port in Windows Device Manager under Ports (COM & LPT).
-  4. Open Command Prompt in this release folder.
-  5. Run:
+Close serial monitors. Enter FLASH/ROM bootloader mode before opening the
+flasher. T-QT Pro and Waveshare147 use native USB; Waveshare7 uses UART for
+flashing and a separate USB connector for keyboard/storage. Safely eject
+writable USB storage before updates, mode changes or resets.
 
-       flash-windows.cmd COM5 WITS-Keyboard-VERSION.factory.bin
+WINDOWS FACTORY FALLBACK (clears settings)
+Install Python 3.11+ and esptool: py -m pip install esptool
+From the model's loose release folder run:
+  flash-windows.cmd COM5 EXACT-MODEL-VERSION.factory.bin
+Substitute the actual COM port and factory filename. This legacy helper does
+not verify the physical model or layout. Prefer the desktop app.
+If a firmware ZIP omits this helper, use the app with its common JSON.
 
-     Replace COM5 and VERSION with the actual values.
+Do not use flash-windows.cmd with .app.bin for routine updates. That older
+helper writes app0 at 0x10000, which may not be the selected slot after OTA.
+Use the app's slot-aware USB update or OTA Update instead.
 
-  6. Confirm that esptool reports successful verification.
-  7. Unplug and reconnect the board normally.
-
-The factory image contains the bootloader, partition table, boot application,
-and WITS Keyboard firmware. It is written at flash address 0x0.
-
-UPDATING A WORKING BOARD WHILE KEEPING ITS BLUETOOTH BONDS
-
-For an update on a working T-QT Pro with the same partition layout, use the .app.bin image instead of the
-factory image. It updates only the application at 0x10000, leaving the NVS
-bond storage, bootloader and partition table intact. A factory image writes
-the entire image range, including padding over NVS, and can clear bonds.
-
-With this release's flash-windows.cmd, use:
-  flash-windows.cmd COM5 WITS-Keyboard-VERSION.app.bin
-
-The updated helper recognizes .app.bin and uses offset 0x10000 automatically.
-Older release helpers always use 0x0; do not use them for an app-only image.
-
-Linux (from this project root, after entering bootloader mode):
-  $HOME/.platformio/packages/tool-esptool/esptool --chip esp32s3 --port /dev/ttyACM0 --baud 460800 write-flash 0x10000 releases/firmware/VERSION/tqtpro/WITS-Keyboard-VERSION.app.bin
-
-Replace VERSION and the serial port as appropriate, then press RESET.
-
-BLUETOOTH OTA (dev8 or newer)
-
-Each board needs one initial USB update to install OTA support. Then highlight
-that connected, authenticated, disarmed board in the desktop app, click Update
-firmware, and select its model-specific .ota.json beside the matching .app.bin.
-The PC stays on its normal network. Eject writable USB storage before updating.
-T-QT Pro and Waveshare images are different; never flash the other model's file.
-
-After an OTA update selects the alternate app slot, an app-only serial flash
-at 0x10000 still writes app0 and DOES NOT change the selected boot slot. The
-app-only instructions above are for initial bootstrap on an unchanged app0
-layout. Use OTA for later updates, or account for the active slot during serial
-recovery. A matching factory recovery image resets the layout and clears bonds.
-Development OTA releases require hardware verification before production use.
+Keep power connected until verification completes. Press RESET, verify the
+version on PROGRAM, enter HID and reconnect. Blank-board recovery can also use
+BOOT held during RESET; release BOOT before trying to start normal firmware.

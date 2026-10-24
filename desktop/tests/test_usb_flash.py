@@ -73,11 +73,12 @@ class UsbFlashTests(unittest.TestCase):
                 self.fail_verify = False
                 self.flash_mb = 4
                 self.bad_layout = False
+                self.sequence = 2
             def command(self, *args):
                 self.operations.append(args[:2])
                 if args[0] == "flash-id": return f"Detected flash size: {self.flash_mb}MB"
                 if args[0] == "read-flash":
-                    data = (bytes(owner.factory[0x8000:0x9000]) if not self.bad_layout else b"bad") if args[1] == "0x8000" else selection(2) + b"\xff" * (0x2000 - 32)
+                    data = (bytes(owner.factory[0x8000:0x9000]) if not self.bad_layout else b"bad") if args[1] == "0x8000" else selection(self.sequence) + b"\xff" * (0x2000 - 32)
                     Path(args[-1]).write_bytes(data)
                 if args[0] == "verify-flash" and self.fail_verify:
                     raise RuntimeError("verification failed")
@@ -113,3 +114,21 @@ class UsbFlashTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SHA-256"):
             self.flasher.flash(self.manifest, "tqtpro")
         self.assertEqual(self.flasher.operations, [])
+
+    def test_waveshare147_requires_16mb_and_updates_alternate_slot(self):
+        manifest = json.loads(self.manifest.read_text())
+        manifest["images"] = {"waveshare147": manifest["images"]["tqtpro"]}
+        self.manifest.write_text(json.dumps(manifest))
+        for wrong_size in (4, 8):
+            self.flasher.flash_mb = wrong_size
+            with self.assertRaisesRegex(ValueError, "16MB"):
+                self.flasher.flash(self.manifest, "waveshare147", factory=True)
+            self.assertFalse(any(op[0] == "write-flash" for op in self.flasher.operations))
+        self.flasher.operations.clear()
+        self.flasher.flash_mb = 16
+        self.flasher.sequence = 1  # app0 selected: update must write app1 at 0x650000.
+        self.flasher.flash(self.manifest, "waveshare147")
+        writes = [op for op in self.flasher.operations if op[0] == "write-flash"]
+        self.assertEqual(writes, [("write-flash", "0x650000"), ("write-flash", "0xf000")])
+        self.assertLess(self.flasher.operations.index(("verify-flash", "0x650000")),
+                        self.flasher.operations.index(("write-flash", "0xf000")))

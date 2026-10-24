@@ -6,7 +6,9 @@ flashing notes. A release's common manifest lives one level above its model
 folders and refers to images using model-relative paths.
 
 The latest common manifest is
-`firmware/0.2.0-dev9/WITS-Keyboard-Release-0.2.0-dev9.ota.json`.
+`firmware/0.2.0-dev10/WITS-Keyboard-Release-0.2.0-dev10.ota.json`.
+It contains T-QT Pro, Waveshare7 and the Waveshare147 bring-up build. The new
+1.47-inch board needs physical validation; see its model folder's README.
 App-only distributions and instructions are in `desktop/<version>/`.
 Historical combined app/T-QT Pro bundles stay with their T-QT Pro release.
 
@@ -18,7 +20,7 @@ ignored files; build/download the images before using a release manifest.
 Existing binaries and ZIP archives were moved without changing their bytes.
 Archived ZIPs retain their original internal paths; extract them completely.
 The loose common manifest was updated for the new `tqtpro/` path. New firmware
-bundles use named model folders for both boards.
+bundles use named model folders for each board.
 
 Builds and packagers refuse to replace an existing release. Bump the relevant
 version before generating a changed distribution.

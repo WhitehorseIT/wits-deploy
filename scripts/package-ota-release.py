@@ -25,24 +25,31 @@ def main():
         if target.factory:
             entries[target.factory.filename] = release.select(target.board, factory=True).data
     entries["README-FIRST.txt"] = (
-        f"WITS Keyboard firmware {release.version} — Bluetooth OTA\n\n"
-        "Extract this entire ZIP, preserving its folders. Use desktop app dev9\n"
-        "or newer. Connect and disarm one board, highlight it, then click Update\n"
-        f"firmware and choose {manifest.name}.\n"
+        f"WITS Deploy firmware {release.version}\n\n"
+        "Extract this entire ZIP, preserving its folders. Use desktop app dev10\n"
+        "or newer. Connect and disarm one board, highlight it, then click\n"
+        f"OTA Update and choose {manifest.name}.\n"
         "The app reads the connected board's model, selects its matching binary\n"
-        "and checks its size/SHA-256 before sending. This same JSON serves both\n"
-        "T-QT Pro and Waveshare7. Do not move the JSON away from the image folders.\n\n"
+        "and checks its size/SHA-256 before sending. This same JSON serves\n"
+        "T-QT Pro, Waveshare7 and Waveshare147. Do not move the JSON away from\n"
+        "the image folders. Waveshare147 is a bring-up build: hardware testing\n"
+        "is pending. Read waveshare147/README-FIRST.txt before first flashing.\n\n"
         "Safely eject writable USB storage first. Keep power connected. Successful\n"
         "uploads restart in PROGRAM; enter HID again and reconnect. Bluetooth\n"
         "OTA requires firmware dev8 or newer installed by USB first. Linux may\n"
         "need a one-time Re-pair after the old pre-OTA service layout changes.\n\n"
-        "For USB flashing, use the app's Flash over USB button, select the same\n"
+        "For USB flashing, use the app's USB Flash/Update button, select the same\n"
         "JSON, physical board model and serial port. Update working board writes\n"
         "the inactive slot and preserves pairings. Install blank board/factory\n"
         "recovery uses the factory image and clears existing board settings.\n"
-        "Enter FLASH first; on Waveshare use UART. Press RESET when verified.\n"
+        "Enter FLASH first. Waveshare7 uses UART; Waveshare147 and T-QT Pro\n"
+        "use their native USB connector. Press RESET when verified.\n"
         "Never blindly serial-flash app0 at 0x10000: app1 may be selected.\n"
     ).encode()
+    for target in release.targets:
+        guide = manifest.parent / target.board / "README-FIRST.txt"
+        if guide.is_file():
+            entries[f"{target.board}/README-FIRST.txt"] = guide.read_bytes()
     entries["SHA256SUMS.txt"] = "".join(
         f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in sorted(entries.items())).encode()
     with ZipFile(archive, "x", compression=ZIP_DEFLATED) as stream:

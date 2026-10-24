@@ -7,7 +7,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("image", type=Path)
-parser.add_argument("board", choices=("tqtpro", "waveshare7"))
+parser.add_argument("board", choices=("tqtpro", "waveshare7", "waveshare147"))
 parser.add_argument("version")
 args = parser.parse_args()
 data = args.image.read_bytes()

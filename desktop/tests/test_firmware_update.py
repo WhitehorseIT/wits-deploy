@@ -88,6 +88,21 @@ class ReleaseManifestTests(FirmwareFixture, unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no firmware"):
             load_image(self.path, "tqtpro")
 
+    def test_three_board_release_selects_distinct_147_image(self):
+        data = self.data[:-1] + b"3"
+        (self.root / "touch.app.bin").write_bytes(data)
+        self.manifest["images"]["waveshare147"] = dict(
+            chip="esp32s3", filename="touch.app.bin", size=len(data),
+            sha256=hashlib.sha256(data).hexdigest())
+        self.save()
+        self.assertEqual(load_image(self.path, "waveshare147").data, data)
+        self.assertEqual(load_image(self.path, "waveshare7").data, self.other)
+        self.assertEqual(load_image(self.path, "tqtpro").data, self.data)
+        del self.manifest["images"]["waveshare147"]
+        self.save()
+        with self.assertRaisesRegex(ValueError, "no firmware"):
+            load_image(self.path, "waveshare147")
+
     def test_unselected_binary_is_not_read_but_selected_corruption_is_rejected(self):
         (self.root / "waveshare7/wave.app.bin").unlink()
         self.assertEqual(load_image(self.path, "tqtpro").data, self.data)
@@ -237,6 +252,12 @@ class BluetoothUploadTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.client.writes[0][1][10], 2)
         self.assertEqual(bytes(self.client.received), self.data)
         self.assertTrue(all(len(frame) <= 20 for _, frame, response in self.client.writes if not response))
+
+    async def test_waveshare147_uses_board_code_three(self):
+        from dataclasses import replace
+        await upload_image(self.client, replace(self.image, board="waveshare147"), Mock())
+        self.assertEqual(self.client.writes[0][1][10], 3)
+        self.assertEqual(bytes(self.client.received), self.data)
 
     async def test_cancellation_during_transfer_sends_abort_without_commit(self):
         import threading

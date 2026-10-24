@@ -55,10 +55,10 @@ colors. No improved hardware throughput is claimed until user retesting.
 The user's Amazon title matches Waveshare ESP32-S3-Touch-LCD-1.47 (exact
 shortlink item could not be opened). Manufacturer specifies 172x320 capacitive
 touch, JD9853 SPI LCD, AXS5106L I2C touch, 16MB flash, 8MB PSRAM, TF slot and
-full-speed USB. A separate hardware target/display/touch/storage adapter will
-be needed; shared BLE/protocol/controller behavior can be retained. No port
-implemented yet. Favor large ARM/STOP controls and a secondary menu for pairing,
-storage and programming on the narrower screen. Native USB throughput remains
+full-speed USB. Dev10 now provides a separate hardware target and display/touch/storage
+adapters while retaining the shared BLE/protocol/controller behavior. See
+[Waveshare147 setup](boards/WAVESHARE147.md) for the first hardware tests and
+the portrait controls. Native USB throughput remains
 full-speed; the smaller display does not change the USB peripheral's ceiling.
 
 References:
@@ -100,10 +100,9 @@ User explicitly requested future compatibility for Waveshare
 ESP32-S3-Touch-LCD-1.47: https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm
 Manufacturer documentation: https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47
 It lists ESP32-S3R8, 16MB flash/8MB PSRAM, 172x320 capacitive display, JD9853,
-AXS5106L and TF card slot. This remains a future target, not firmware included
-in dev9. Bring up its own display/touch/pins/SD adapter, verify actual module
-flash and PSRAM, then assign a distinct board ID/OTA code and add it to the
-release catalog, app model names and wired-flash layout checks. Reuse shared
-keyboard, paired BLE transport, mass-storage policy and update protocol. Test
-HID + read-only MSC before enabling writes. Prioritize usable ARM/STOP controls
-on the smaller screen. Do not substitute T-QT Pro or Waveshare7 firmware.
+AXS5106L and TF card slot. Dev10 implements target `waveshare147`, OTA code 3,
+its display/touch/pin adapter and dedicated SPI SD bus, release catalog entry
+and 16MB wired-flash checks. Shared keyboard, paired BLE, storage policy and
+OTA behavior are retained. Firmware builds and automated tests pass; physical
+validation remains pending. Test touch, HID and read-only MSC before enabling
+writes. Do not substitute T-QT Pro or Waveshare7 firmware.

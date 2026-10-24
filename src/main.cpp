@@ -24,6 +24,7 @@
 #include "firmware_version.h"
 #include "status_display.h"
 #include "board_hardware.h"
+#include "board_profile.h"
 #include "usb_storage.h"
 #include "startup_trace.h"
 #include "firmware_update.h"
@@ -76,14 +77,14 @@ void setup() {
   // request before starting USB so any later reset fails safe.
   hidMode = esp_reset_reason() == ESP_RST_SW && nextBootMagic == HID_BOOT_MAGIC;
   nextBootMagic = 0;
-#ifdef WITS_BOARD_WAVESHARE7
+#if WITS_HAS_STORAGE
   esp_rom_printf("[WITS] firmware=%s reset_reason=%u mode=%s\n", Firmware::VERSION,
                  static_cast<unsigned>(esp_reset_reason()), hidMode ? "HID+MSC" : "PROGRAM");
 #endif
   StartupTrace::mark("Board IO begin");
   bool boardReady = BoardHardware::begin();
   StartupTrace::mark("Board IO ready");
-#ifndef WITS_BOARD_WAVESHARE7
+#if !WITS_HAS_TOUCHSCREEN
   pinMode(LEFT_BUTTON_PIN, INPUT_PULLUP);
   pinMode(RIGHT_BUTTON_PIN, INPUT_PULLUP);
 #endif
@@ -385,7 +386,7 @@ void loop() {
   if (hidMode) {
     Storage::loop();
     BleTransport::loop();
-#ifndef WITS_BOARD_WAVESHARE7
+#if !WITS_HAS_TOUCHSCREEN
     updateLeftButton();
     updateRightButton();
 #endif
@@ -411,7 +412,7 @@ void loop() {
         holdProgressPermille(leftButton, LONG_PRESS_MS),
         holdProgressPermille(rightButton, BOND_RESET_PRESS_MS));
   } else {
-#ifndef WITS_BOARD_WAVESHARE7
+#if !WITS_HAS_TOUCHSCREEN
     updateProgrammingButtons();
 #endif
     StatusDisplay::update(false, false, false, false, false, false, false, 0);

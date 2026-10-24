@@ -11,6 +11,7 @@ fi
 case "$target" in
   tqtpro) image_name="WITS-Keyboard-$version" ;;
   waveshare7) image_name="WITS-Keyboard-Waveshare7-$version" ;;
+  waveshare147) image_name="WITS-Keyboard-Waveshare147-$version" ;;
   *) echo "Unknown board target: $target" >&2; exit 1 ;;
 esac
 build_dir="$project_dir/.pio/build/$target"
@@ -69,6 +70,7 @@ echo "Release bundle created in $release_dir"
 
 catalog_dir="$project_dir/releases/firmware/$version"
 if [[ -f "$catalog_dir/tqtpro/WITS-Keyboard-$version.ota.json" &&
-      -f "$catalog_dir/waveshare7/WITS-Keyboard-Waveshare7-$version.ota.json" ]]; then
+      -f "$catalog_dir/waveshare7/WITS-Keyboard-Waveshare7-$version.ota.json" &&
+      -f "$catalog_dir/waveshare147/WITS-Keyboard-Waveshare147-$version.ota.json" ]]; then
   python3 "$project_dir/scripts/make-ota-catalog.py" "$catalog_dir"
 fi

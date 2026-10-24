@@ -22,7 +22,11 @@ def main():
     paths = {
         "tqtpro": root / "tqtpro" / f"WITS-Keyboard-{version}.ota.json",
         "waveshare7": root / "waveshare7" / f"WITS-Keyboard-Waveshare7-{version}.ota.json",
+        "waveshare147": root / "waveshare147" / f"WITS-Keyboard-Waveshare147-{version}.ota.json",
     }
+    paths = {board: path for board, path in paths.items() if path.is_file()}
+    if not paths:
+        parser.error("no supported model manifests found")
     images = {}
     for board, path in paths.items():
         release = load_release(path)

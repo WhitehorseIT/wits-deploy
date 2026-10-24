@@ -24,10 +24,10 @@ python3 -m venv .venv-pio
 .venv-pio/bin/python -m pip install platformio
 ```
 
-Build both supported targets:
+Build all targets (the 1.47-inch target is still in hardware bring-up):
 
 ```bash
-.venv-pio/bin/pio run -e tqtpro -e waveshare7
+.venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147
 ```
 
 Board settings and dependencies are defined in [platformio.ini](../platformio.ini).
@@ -54,6 +54,7 @@ below with that exact value:
 ```bash
 bash scripts/build-release.sh VERSION tqtpro
 bash scripts/build-release.sh VERSION waveshare7
+bash scripts/build-release.sh VERSION waveshare147
 ```
 
 Output is grouped by model:
@@ -62,12 +63,14 @@ Output is grouped by model:
 releases/firmware/VERSION/
   tqtpro/
   waveshare7/
+  waveshare147/
   WITS-Keyboard-Release-VERSION.ota.json
 ```
 
 Each model folder contains app/factory images, checksums, and its individual
-manifest. Once both builds are available, the builder generates the common
-release manifest. It can also be generated explicitly:
+manifest. Once all three builds are available, the builder generates the common
+release manifest. It can also be generated explicitly for available models
+(including older two-model releases):
 
 ```bash
 python3 scripts/make-ota-catalog.py releases/firmware/VERSION

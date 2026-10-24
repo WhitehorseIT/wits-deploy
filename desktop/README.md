@@ -145,30 +145,36 @@ cd desktop
 python3 -m unittest discover -s tests -v
 ```
 
-## Bluetooth firmware updates (dev8)
+## Bluetooth firmware updates
 
-Highlight one connected, authenticated, disarmed board and choose Update
-firmware. Select its model-specific .ota.json beside the matching .app.bin.
-Both T-QT Pro and Waveshare7 need one initial USB bootstrap to OTA-capable
-firmware. The existing paired BLE connection carries the upload; your Wi-Fi/
-internet connection stays unchanged. Safely eject writable USB storage first.
-Keep power on and follow progress in the app; the Waveshare display pauses
-during flash writes. Verified uploads restart in PROGRAM. Hardware OTA testing
-is pending. See the project's OTA-UPDATES.md for bootstrap and recovery.
+Highlight one connected, authenticated, disarmed board and choose **OTA
+Update…**. Select the common release `.ota.json`, keeping its image folders
+alongside it. The app reads the board model and selects its matching image;
+legacy single-model manifests remain supported. OTA-capable firmware must be
+installed over USB first (dev8+ on original boards, dev10+ on Waveshare147).
+Your normal network connection stays connected.
 
-## App dev9 firmware workflow
+Safely eject writable USB storage first and keep power on. Progress includes
+KiB/s and estimated time. The 7-inch RGB screen pauses during writes; SPI
+screens retain their update message. Verified uploads reboot to PROGRAM.
+See [update and recovery](../docs/OTA-UPDATES.md) for details and test limits.
 
-One `WITS-Keyboard-Release-VERSION.ota.json` serves both supported models.
-Extract the firmware ZIP with its folders intact. For Bluetooth, connect and
-disarm a board, highlight it, then Update firmware; the app reads its model and
-selects the matching image. Old single-model manifests remain supported.
+## USB flashing and the 1.47-inch board (app dev10)
 
-Flash over USB also supports blank boards. Select the physical model, port
-and same JSON, enter FLASH, then choose a working-board update (inactive slot,
-verify, commit; preserves pairings) or factory installation (clears settings).
-Use UART on Waveshare. Keep power connected and press RESET after verification.
-Setup now installs esptool/pyserial too; rerun setup if using a previous venv.
+**USB Flash/Update…** supports blank boards without a Bluetooth connection.
+Select the physical model, serial port and same common release JSON. Enter
+FLASH/bootloader mode, close serial monitors and safely eject writable storage.
+Working-board updates verify the layout and inactive app before committing;
+factory installation clears settings and is appropriate for a first install.
+Press RESET after verification. Setup installs esptool/pyserial; rerun setup
+if using an older environment.
 
-Bluetooth uploads display KiB/s and estimated remaining time. Linux explicitly
-queries MTU before upload and releases the temporary write lock; packet limits
-are refreshed during transfer. New hardware speed/USB checks remain pending.
+Waveshare7 uses its UART connector for flashing and separate USB for keyboard/
+storage. Waveshare147 uses its single USB-C connector. Select **Waveshare
+1.47-inch touch** for the new board; do not substitute another model. This port
+is a first bring-up build with hardware tests pending. See its
+[first-flash guide](../docs/boards/WAVESHARE147.md).
+
+Bluetooth uses authenticated model information; blank-board USB installation
+requires you to choose the exact physical model. Flash capacity checks catch
+many mismatches but cannot identify all unrelated boards with matching memory.

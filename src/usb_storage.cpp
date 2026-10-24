@@ -2,8 +2,9 @@
 #include "startup_trace.h"
 #include "storage_transfer.h"
 #include "storage_scsi.h"
+#include "board_profile.h"
 
-#ifdef WITS_BOARD_WAVESHARE7
+#if WITS_HAS_STORAGE
 #include "board_hardware.h"
 #include <USBMSC.h>
 #include <driver/sdspi_host.h>
@@ -177,9 +178,9 @@ void begin() {
   msc->onStartStop(startStop);
 
   spi_bus_config_t bus = {};
-  bus.mosi_io_num = 11;
-  bus.miso_io_num = 13;
-  bus.sclk_io_num = 12;
+  bus.mosi_io_num = BoardProfile::SD_MOSI;
+  bus.miso_io_num = BoardProfile::SD_MISO;
+  bus.sclk_io_num = BoardProfile::SD_SCK;
   bus.quadwp_io_num = -1;
   bus.quadhd_io_num = -1;
   bus.data4_io_num = -1;
@@ -189,7 +190,7 @@ void begin() {
   bus.max_transfer_sz = 4096;
   sdspi_device_config_t device = SDSPI_DEVICE_CONFIG_DEFAULT();
   device.host_id = SPI2_HOST;
-  device.gpio_cs = SDSPI_SLOT_NO_CS;
+  device.gpio_cs = static_cast<gpio_num_t>(BoardProfile::SD_CS);
   sdspi_dev_handle_t handle;
   sdmmc_host_t host = SDSPI_HOST_DEFAULT();
   host.max_freq_khz = SDMMC_FREQ_DEFAULT; // 20MHz default-speed SD SPI.

@@ -7,16 +7,12 @@
 #include "usb_storage.h"
 #include "status_display.h"
 #include "startup_trace.h"
+#include "board_profile.h"
 
 namespace FirmwareUpdate {
 namespace {
-#ifdef WITS_BOARD_WAVESHARE7
-constexpr uint8_t BOARD_CODE = 1;
-constexpr size_t MIN_PSRAM = 4 * 1024 * 1024;
-#else
-constexpr uint8_t BOARD_CODE = 2;
-constexpr size_t MIN_PSRAM = 1024 * 1024;
-#endif
+constexpr uint8_t BOARD_CODE = BoardProfile::OTA_CODE;
+constexpr size_t MIN_PSRAM = BoardProfile::MIN_PSRAM;
 struct Control { uint8_t command; uint32_t tag; uint32_t size; uint8_t hash[32]; };
 struct Packet { uint32_t tag; uint32_t offset; uint16_t size; uint8_t bytes[504]; };
 QueueHandle_t controls = nullptr, packets = nullptr;

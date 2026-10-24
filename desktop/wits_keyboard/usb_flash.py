@@ -11,7 +11,8 @@ import tempfile
 from .firmware_update import load_release
 
 LAYOUTS = {"tqtpro": (4, (0x10000, 0x200000), 0x1f0000),
-           "waveshare7": (8, (0x10000, 0x340000), 0x330000)}
+           "waveshare7": (8, (0x10000, 0x340000), 0x330000),
+           "waveshare147": (16, (0x10000, 0x650000), 0x640000)}
 
 
 def update_plan(otadata: bytes):

@@ -152,8 +152,9 @@ ERRORS = {
     6: "Firmware update aborted",
     7: "Firmware transfer timed out; current firmware retained",
 }
-BOARD_CODES = {"waveshare7": 1, "tqtpro": 2}
-BOARD_NAMES = {"waveshare7": "Waveshare 7-inch", "tqtpro": "T-QT Pro"}
+BOARD_CODES = {"waveshare7": 1, "tqtpro": 2, "waveshare147": 3}
+BOARD_NAMES = {"waveshare7": "Waveshare 7-inch", "tqtpro": "T-QT Pro",
+               "waveshare147": "Waveshare 1.47-inch touch"}
 
 
 async def upload_image(client, image: FirmwareImage, progress: Callable[[str, int], None], cancelled=None) -> None:

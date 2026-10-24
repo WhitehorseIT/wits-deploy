@@ -1,4 +1,5 @@
 #include "board_hardware.h"
+#include "board_profile.h"
 
 #ifdef WITS_BOARD_WAVESHARE7
 #include <Wire.h>
@@ -89,6 +90,58 @@ bool readTouch(bool &pressed, uint16_t &x, uint16_t &y) {
 
 void backlightOn() { if (ready) setOutput(2, true); }
 void backlightOff() { if (ready) setOutput(2, false); }
+} // namespace BoardHardware
+#elif defined(WITS_BOARD_WAVESHARE147)
+#include <Wire.h>
+#include "touch_controls147.h"
+
+namespace BoardHardware {
+namespace {
+bool touchPresent = false;
+constexpr uint8_t TOUCH_ADDRESS = 0x63;
+}
+bool begin() {
+  pinMode(BoardProfile::SD_CS, OUTPUT);
+  digitalWrite(BoardProfile::SD_CS, HIGH);
+  pinMode(BoardProfile::LCD_CS, OUTPUT);
+  digitalWrite(BoardProfile::LCD_CS, HIGH);
+  pinMode(BoardProfile::LCD_BL, OUTPUT);
+  digitalWrite(BoardProfile::LCD_BL, LOW);
+  pinMode(BoardProfile::TOUCH_RST, OUTPUT);
+  pinMode(BoardProfile::TOUCH_INT, INPUT_PULLUP);
+  pinMode(0, INPUT_PULLUP);
+  bool ready = Wire.begin(BoardProfile::TOUCH_SDA, BoardProfile::TOUCH_SCL, 400000);
+  Wire.setTimeOut(30);
+  digitalWrite(BoardProfile::TOUCH_RST, LOW);
+  delay(200);
+  digitalWrite(BoardProfile::TOUCH_RST, HIGH);
+  delay(300);
+  if (ready) {
+    Wire.beginTransmission(TOUCH_ADDRESS);
+    touchPresent = Wire.endTransmission() == 0;
+  }
+  return ready;
+}
+bool selectCard() { return true; } // Dedicated SPI2 bus; SD driver owns GPIO14 CS.
+bool touchAvailable() { return touchPresent; }
+bool readTouch(bool &pressed, uint16_t &x, uint16_t &y) {
+  if (!touchPresent) return false;
+  Wire.beginTransmission(TOUCH_ADDRESS);
+  Wire.write(0x01); // AXS5106L touch report, count followed by 12-bit coordinates.
+  if (Wire.endTransmission() != 0 || Wire.requestFrom(TOUCH_ADDRESS, uint8_t(14)) != 14) return false;
+  uint8_t report[14];
+  for (auto &byte : report) byte = Wire.read();
+  uint16_t rawX = (uint16_t(report[2] & 0x0f) << 8) | report[3];
+  uint16_t rawY = (uint16_t(report[4] & 0x0f) << 8) | report[5];
+  auto contact = Touch147::decode(report[1] & 0x0f, rawX, rawY);
+  pressed = contact.pressed;
+  // Vendor portrait rotation zero mirrors X; display RAM has a 34-column offset.
+  x = contact.x;
+  y = contact.y;
+  return true;
+}
+void backlightOn() { digitalWrite(BoardProfile::LCD_BL, HIGH); }
+void backlightOff() { digitalWrite(BoardProfile::LCD_BL, LOW); }
 } // namespace BoardHardware
 #else
 namespace BoardHardware {

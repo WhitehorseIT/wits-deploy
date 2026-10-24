@@ -13,7 +13,7 @@ provide MicroSD-backed USB storage.
 - Send text, special keys, and keyboard shortcuts with adjustable start and
   character delays.
 - Physically arm devices before typing, with visible status and STOP controls.
-- Share deployment files over USB mass storage on the Waveshare 7-inch board,
+- Share deployment files over USB mass storage on supported Waveshare boards,
   with read-only access by default and app-controlled write permission.
 - Update firmware over Bluetooth or USB using one release manifest that lists
   the images for each board model.
@@ -25,20 +25,20 @@ provide MicroSD-backed USB storage.
 | --- | --- | --- |
 | LILYGO T-QT Pro | `tqtpro` | Supported |
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
-| Waveshare ESP32-S3-Touch-LCD-1.47 | — | Coming next |
+| Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | First bring-up build; hardware validation pending |
 
-Current development version: **0.2.0-dev9**. Bluetooth OTA has been tested on
-both supported boards. USB update/factory installation and interrupted-update
-recovery still need hardware validation.
+Current development version: **0.2.0-dev10**. Bluetooth OTA has been tested on
+the T-QT Pro and 7-inch boards. The 1.47-inch port, USB update/factory installation
+and interrupted-update recovery need hardware validation.
 
-### Coming next: Waveshare 1.47-inch touch board
+### Waveshare 1.47-inch touch board
 
-The next planned hardware target is the
+The newest hardware target is the
 [Waveshare ESP32-S3-Touch-LCD-1.47](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47),
-with a 172 × 320 capacitive touchscreen and MicroSD slot. Planned support includes
-USB keyboard entry, deployment storage, Bluetooth OTA, and USB flashing through
-the same desktop app. Its dedicated firmware port is pending; see the
-[hardware roadmap](docs/STORAGE-PLAN.md#confirmed-next-board--2026-10-24).
+with a 172 × 320 capacitive touchscreen and MicroSD slot. Dev10 includes a
+dedicated display/touch adapter, USB keyboard and storage, Bluetooth OTA, and
+USB flashing through the same desktop app. Its first physical tests are pending;
+see the [setup and test guide](docs/boards/WAVESHARE147.md).
 
 ## Get started
 
@@ -68,8 +68,9 @@ See the [desktop guide](desktop/README.md) for pairing and controls.
   existing board settings.
 
 Use the common release JSON and keep its image folders alongside it. Safely
-eject writable storage before updating. The Waveshare's **UART** connector is
+eject writable storage before updating. The 7-inch board's **UART** connector is
 for USB flashing; its **USB** connector carries keyboard and storage traffic.
+The 1.47-inch board uses its single USB-C connector for both roles.
 
 [Update and recovery guide](docs/OTA-UPDATES.md) · [Release files](releases/README.md)
 
@@ -77,6 +78,7 @@ for USB flashing; its **USB** connector carries keyboard and storage traffic.
 
 - [Build, test, and package releases](docs/DEVELOPMENT.md)
 - [Waveshare 7-inch setup](docs/boards/WAVESHARE7.md)
+- [Waveshare 1.47-inch first flash](docs/boards/WAVESHARE147.md)
 - [Storage design and hardware roadmap](docs/STORAGE-PLAN.md)
 - [Web controller deployment](deploy/README.md)
 - [Historical handoffs](docs/handoffs/README.md)

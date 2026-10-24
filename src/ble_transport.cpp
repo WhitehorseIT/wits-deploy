@@ -1,5 +1,6 @@
 #include "ble_transport.h"
 #include "firmware_version.h"
+#include "board_profile.h"
 #include "usb_storage.h"
 #include "firmware_update.h"
 
@@ -675,11 +676,7 @@ class InfoCallbacks : public BLECharacteristicCallbacks {
         "\"supported\":%s,\"present\":%s,\"exported\":%s,\"writable\":%s,"
         "\"ejected\":%s,\"error\":%s,\"bytes\":%llu}",
         Firmware::VERSION,
-#ifdef WITS_BOARD_WAVESHARE7
-        "waveshare7",
-#else
-        "tqtpro",
-#endif
+        BoardProfile::ID,
         p.supported ? "true" : "false", p.present ? "true" : "false",
         p.exported ? "true" : "false", p.writable ? "true" : "false",
         p.ejected ? "true" : "false", p.error ? "true" : "false",

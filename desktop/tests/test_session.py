@@ -65,6 +65,22 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             client_factory=FakeClient,
         )
 
+    async def test_auto_connect_never_initiates_pairing_without_saved_bond(self):
+        from wits_keyboard.bonding import PairingRequired
+        with patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=False)):
+            with self.assertRaises(PairingRequired):
+                await self.session.connect(allow_pairing=False)
+        self.assertIsNone(self.session.client)
+        self.assertFalse(self.session.state.connected)
+
+    async def test_auto_connect_uses_saved_bond_without_requesting_pairing(self):
+        with patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)):
+            await self.session.connect(allow_pairing=False)
+        self.assertFalse(self.session.client.options["pair"])
+        self.assertTrue(self.session.state.authenticated)
+        self.assertFalse(self.session.state.armed)
+        await self.session.disconnect()
+
     async def test_firmware_update_requires_disarmed_authenticated_matching_board(self):
         image = SimpleNamespace(board="tqtpro")
         self.session.read_info = AsyncMock(return_value=SimpleNamespace(board="waveshare7"))

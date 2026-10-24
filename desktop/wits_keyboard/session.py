@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from . import protocol
 from .logging_config import safe_error
+from .bonding import PairingRequired, has_saved_bond
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class BoardSession:
         logger.debug("State address=%s %s", self.address, asdict(self.state))
         self._emit("state", name=self.name, **asdict(self.state))
 
-    async def connect(self) -> None:
+    async def connect(self, *, allow_pairing: bool = True) -> None:
         if self.state.connected:
             logger.debug("Connect skipped; already connected address=%s", self.address)
             return
@@ -89,6 +90,8 @@ class BoardSession:
                     self.name, "app-agent" if app_pairing else "OS")
         discovery = None
         try:
+            if not allow_pairing and not await has_saved_bond(self.device):
+                raise PairingRequired("Automatic reconnect requires an existing OS bond. Use Connect or Re-pair manually.")
             await self._close_diagnostics()
             if app_pairing:
                 from .pairing import pair_linux
@@ -104,7 +107,7 @@ class BoardSession:
                     self.linux_diagnostics = None
                 discovery = LinuxConnectionDiscovery(self.device, self._emit)
                 await discovery.start()
-                fresh_pairing = await pair_linux(self.device, self.pairing_callback)
+                fresh_pairing = await pair_linux(self.device, self.pairing_callback) if allow_pairing else False
                 self._emit("progress", message=(
                     "PIN pairing completed; connecting…" if fresh_pairing else
                     "Using saved pairing; connecting without another PIN…"
@@ -113,8 +116,8 @@ class BoardSession:
                 self.device,
                 disconnected_callback=self._on_disconnected,
                 services=[protocol.SERVICE_UUID],
-                pair=not app_pairing,
-                timeout=90.0,
+                pair=allow_pairing and not app_pairing,
+                timeout=90.0 if allow_pairing else 25.0,
             )
             logger.debug("Awaiting Bleak connect address=%s", self.address)
             if app_pairing:

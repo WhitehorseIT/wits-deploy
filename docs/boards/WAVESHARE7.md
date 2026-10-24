@@ -113,9 +113,10 @@ To restore read-only access, safely eject again, refresh and Mount read-only.
 No automatic filesystem format or local filesystem mount occurs. BLE is the
 control path; copy installer files through USB or a separate card reader.
 
-Write permission is volatile and revoked on BLE disconnect/new connection
-and reboot. Disconnecting during host writes can interrupt the copy; safe
-eject is still necessary. A forced revoke is not reported as a safe eject.
+With dev13, a granted R/W export remains writable across BLE disconnect,
+new connections, pairing and app closure until confirmed host safe eject.
+Reboot starts read-only. Older firmware revoked writes on BLE changes and
+could interrupt a copy. Eject is still required before remount/restart/OTA.
 
 ## First hardware checks
 
@@ -126,7 +127,7 @@ eject is still necessary. A forced revoke is not reported as a safe eject.
   attached; verify STOP and disconnect still disarm.
 - Safely eject, refresh, mount read/write, copy a test file and verify its hash.
   Eject/remount read-only and verify a write is refused.
-- App disconnect and reboot revoke write access. Reboot requires entering HID
+- App disconnect/reconnect must preserve R/W during a copy; reboot resets to read-only. Reboot requires entering HID
   again. Card insertion/removal requires reset; hot-swap recovery is not implemented.
 
 An OS eject must reach the SCSI START STOP UNIT callback before remount is

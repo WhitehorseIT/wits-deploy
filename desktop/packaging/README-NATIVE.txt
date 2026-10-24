@@ -25,6 +25,16 @@ or sends text. Pair and connect using the usual workflow. Windows PIN entry
 uses Bluetooth Settings; Linux uses the app dialog. USB Flash/Update includes
 its esptool helper and supports blank boards; choose the exact physical model.
 
+App dev13 adds a saved Auto-connect checkbox per board, separate from Target.
+It watches HID advertisements and reconnects with existing OS pairing. First
+pairing stays manual. Manual Disconnect pauses auto-connect until Connect,
+a toggle, or app restart. Connections do not arm or select targets.
+
+Firmware dev13 keeps an authorized R/W USB mount writable across app closure
+and BLE disconnect/reconnect. Safely eject on its USB host before changing
+mode, resetting or updating. Keyboard output still stops and disarms when the
+control link drops. This storage fix requires dev13 firmware, not only the app.
+
 Logs: Windows %LOCALAPPDATA%\Whitehorse IT Solutions\WITS Deploy\logs;
 Linux ${XDG_STATE_HOME:-~/.local/state}/wits-deploy/logs.
 The app also displays the exact log path. PINs and typed payloads are omitted.

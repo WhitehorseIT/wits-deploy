@@ -160,3 +160,28 @@ class DeliveryTests(unittest.TestCase):
         self.window._delivery_tick()
         self.assertIsNone(self.window.pending_delivery)
         self.assertFalse(self.submissions)
+
+    def test_auto_connect_preference_is_independent_of_targets_and_restored(self):
+        import json
+        self.window.controller.known_devices["A"] = DiscoveredBoard("A", "Board A")
+        self.window.items["A"].setCheckState(4, Qt.CheckState.Checked)
+        self.assertEqual(self.window.items["A"].checkState(0), Qt.CheckState.Checked)
+        self.assertTrue(json.loads(self.settings.value("known_devices"))[0]["auto_connect"])
+        restored = MainWindow()
+        try:
+            self.assertEqual(restored.items["A"].checkState(4), Qt.CheckState.Checked)
+            self.assertEqual(restored.items["A"].checkState(0), Qt.CheckState.Unchecked)
+            self.assertIn("A", restored.auto_connect_preferences)
+        finally:
+            restored.close()
+
+    def test_auto_connection_updates_progress_without_targeting_or_arming(self):
+        self.window.items["A"].setCheckState(0, Qt.CheckState.Unchecked)
+        self.window._board_event("A", "state", {"connected": False})
+        self.window._board_event("A", "auto_connect", {"status": "connecting", "message": "Auto-connecting"})
+        self.assertIn("A", self.window.management_pending)
+        self.window._board_event("A", "state", {"connected": True, "authenticated": True, "armed": False})
+        self.window._board_event("A", "auto_connect", {"status": "connected", "message": "Automatically connected"})
+        self.assertNotIn("A", self.window.management_pending)
+        self.assertEqual(self.window.items["A"].checkState(0), Qt.CheckState.Unchecked)
+        self.assertFalse(self.window.states["A"]["armed"])

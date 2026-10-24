@@ -1,9 +1,9 @@
 # App shortcuts and standalone builds
 
-App **0.2.0-dev11** adds Linux shortcuts and Windows/Linux native build tooling.
+App **0.2.0-dev13** includes native builds, bundled firmware, Linux shortcuts and optional automatic reconnect.
 The Linux standalone build now exists and passed its offline startup check.
 Its archive and all extracted file hashes were verified. The extracted app is
-in `releases/desktop/0.2.0-dev11/native/WITS-Deploy-0.2.0-dev11-Linux-x86_64/`.
+in `releases/desktop/0.2.0-dev13/native/WITS-Deploy-0.2.0-dev13-Linux-x86_64/`.
 The project-root launcher points to it. For its menu entry, run that folder's
 `INSTALL-LAUNCHER.sh`; KDE can pin the menu entry to its Task Manager.
 The original Python app remains usable. Windows native builds and physical
@@ -63,10 +63,10 @@ When dependencies are already installed, the common builder is:
 python scripts/build-desktop.py
 ```
 
-Artifacts go to `releases/desktop/0.2.0-dev11/`:
+Artifacts go to `releases/desktop/0.2.0-dev13/`:
 
-- `WITS-Deploy-0.2.0-dev11-Windows-x64.zip`
-- `WITS-Deploy-0.2.0-dev11-Linux-x86_64.tar.gz`
+- `WITS-Deploy-0.2.0-dev13-Windows-x64.zip`
+- `WITS-Deploy-0.2.0-dev13-Linux-x86_64.tar.gz`
 - A companion `.sha256` file for each archive.
 
 These names describe the intended outputs; the files exist only after a
@@ -78,7 +78,7 @@ boards. Local builds use the complete release named in
 no binaries, extract a firmware ZIP and pass its common JSON, for example:
 
 ```bash
-bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Keyboard-Release-0.2.0-dev11.ota.json
+bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Keyboard-Release-0.2.0-dev13.ota.json
 ```
 
 The builder validates every image's model, size, SHA-256 and matching app/factory
@@ -143,3 +143,12 @@ Primary references: [PyInstaller operating mode](https://pyinstaller.org/en/stab
 [runtime executable paths](https://pyinstaller.org/en/stable/runtime-information.html),
 [subprocess considerations](https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html),
 and [desktop entry quoting](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
+
+## Dev13 reconnect and storage lifecycle
+
+Enable the saved Auto-connect checkbox independently of Target. Existing OS
+pairing is required; missing/stale bonds pause and require manual pairing.
+Manual Disconnect pauses background retries until Connect/toggle/restart.
+The firmware13 write grant lasts for the USB export until safe eject, including
+when this app closes or reconnects. Rebuilding only the app does not fix an old
+board's immediate write revocation; install firmware13 as well.

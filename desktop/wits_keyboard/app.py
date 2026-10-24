@@ -184,6 +184,9 @@ class MainWindow(QMainWindow):
         self.board_information: dict[str, dict[str, Any]] = {}
         self.passkey_dialogs: dict[str, QDialog] = {}
         self.management_pending: dict[str, tuple[str, str, float]] = {}
+        self.auto_connect_preferences: set[str] = set()
+        self.auto_management_tokens: dict[str, str] = {}
+        self.auto_status: dict[str, str] = {}
         self.pending_delivery: PendingDelivery | None = None
         self.key_buttons: list[QPushButton] = []
         logger.info("Main window initializing")
@@ -204,6 +207,8 @@ class MainWindow(QMainWindow):
         self.delivery_timer.setInterval(100)
         self.delivery_timer.timeout.connect(self._delivery_tick)
         self._restore_devices()
+        for address in self.auto_connect_preferences:
+            self.runner.submit(self.controller.set_auto_connect(address, True), operation="restore auto-connect")
         self._update_management_buttons()
 
     def _restore_devices(self) -> None:
@@ -229,15 +234,17 @@ class MainWindow(QMainWindow):
             if not isinstance(address, str) or not address or not isinstance(name, str):
                 continue
             board = DiscoveredBoard(address, name)
+            if item.get("auto_connect") is True:
+                self.auto_connect_preferences.add(address)
             self.controller.known_devices[address] = board
             self._add_or_update_device(board)
             self._set_board_status(address, "Saved")
         if self.items:
-            self.status_label.setText(f"Restored {len(self.items)} saved device(s). Select one to Connect.")
+            self.status_label.setText(f"Restored {len(self.items)} saved device(s). Auto-connect watches enabled rows; Connect pairs manually.")
 
     def _save_devices(self) -> None:
         self.settings.setValue("known_devices", json.dumps([
-            {"address": board.address, "name": board.name}
+            {"address": board.address, "name": board.name, "auto_connect": board.address in self.auto_connect_preferences}
             for board in tuple(self.controller.known_devices.values())
         ]))
         self.settings.sync()
@@ -346,14 +353,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
 
         self.device_tree = QTreeWidget()
-        self.device_tree.setHeaderLabels(("Target", "Device", "Board state", "Last result"))
+        self.device_tree.setHeaderLabels(("Target", "Device", "Board state", "Last result", "Auto-connect"))
         self.device_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.device_tree.setRootIsDecorated(False)
         self.device_tree.setAlternatingRowColors(True)
         self.device_tree.setColumnWidth(0, 64)
         self.device_tree.setColumnWidth(1, 185)
         self.device_tree.setColumnWidth(2, 145)
-        self.device_tree.itemChanged.connect(self._targets_changed)
+        self.device_tree.setColumnWidth(4, 100)
+        self.device_tree.itemChanged.connect(self._device_option_changed)
         self.device_tree.itemSelectionChanged.connect(self._update_management_buttons)
         layout.addWidget(self.device_tree, 1)
 
@@ -588,6 +596,10 @@ class MainWindow(QMainWindow):
             item.setCheckState(0, Qt.CheckState.Unchecked)
             item.setData(1, ADDRESS_ROLE, board.address)
             self.items[board.address] = item
+        was_blocked = self.device_tree.blockSignals(True)
+        item.setCheckState(4, Qt.CheckState.Checked if board.address in self.auto_connect_preferences else Qt.CheckState.Unchecked)
+        item.setToolTip(4, "Reconnect this saved paired board automatically. Manual Disconnect pauses until Connect, toggle or app restart.")
+        self.device_tree.blockSignals(was_blocked)
         alias = self.settings.value(f"aliases/{board.address}", board.name)
         item.setText(1, str(alias))
         item.setToolTip(1, f"{board.name}\n{board.address}")
@@ -603,6 +615,21 @@ class MainWindow(QMainWindow):
         if state.get("typing"):
             return "TYPING"
         return "ARMED" if state.get("armed") else "DISARMED"
+
+    def _device_option_changed(self, item: QTreeWidgetItem, column: int) -> None:
+        if column == 0:
+            self._targets_changed()
+        elif column == 4:
+            address = str(item.data(1, ADDRESS_ROLE) or "")
+            if not address:
+                return
+            enabled = item.checkState(4) == Qt.CheckState.Checked
+            if enabled:
+                self.auto_connect_preferences.add(address)
+            else:
+                self.auto_connect_preferences.discard(address)
+            self._save_devices()
+            self.runner.submit(self.controller.set_auto_connect(address, enabled), operation="configure auto-connect")
 
     def _set_board_status(self, address: str, label: str) -> None:
         item = self.items[address]
@@ -728,6 +755,7 @@ class MainWindow(QMainWindow):
         self.disconnect_button.setText("Cancel connection" if pending else "Disconnect")
         self.disconnect_button.setEnabled(any(
             a in self.management_pending or self.states.get(a, {}).get("connected")
+            or self.auto_status.get(a) in {"watching", "waiting", "connecting"}
             for a in addresses
         ))
         self.repair_button.setEnabled(
@@ -1095,6 +1123,23 @@ class MainWindow(QMainWindow):
         logger.debug("UI board event address=%s event=%s details=%s", address, event, details)
         item = self.items.get(address)
         if item is None:
+            return
+        if event == "auto_connect":
+            status, message = details["status"], details["message"]
+            self.auto_status[address] = status
+            if status == "connecting" and address not in self.management_pending:
+                self.auto_management_tokens[address] = self._begin_management(address, "Auto-connecting")
+                self._set_board_status(address, "Connecting")
+            elif status != "connecting":
+                token = self.auto_management_tokens.pop(address, None)
+                if token is not None:
+                    self._management_finished(address, token)
+                if status == "watching" and not self.states.get(address, {}).get("connected") and address not in self.management_pending:
+                    self._set_board_status(address, "Watching")
+            item.setText(3, message)
+            item.setToolTip(4, message)
+            self._log(f"{item.text(1)}: {message}")
+            self._update_management_buttons()
             return
         if event == "state":
             self.states[address] = details

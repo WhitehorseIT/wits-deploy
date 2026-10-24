@@ -9,7 +9,6 @@ struct Snapshot {
 };
 void begin(); // Construct MSC before USB.begin(); card is never mounted locally.
 void loop();
-void revokeWrites();
 bool prepareRestart();
 Result configure(bool allowWrites);
 Snapshot snapshot();

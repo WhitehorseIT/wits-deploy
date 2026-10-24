@@ -434,7 +434,8 @@ void sendStatus(uint8_t status, uint16_t sequence) {
 
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *) override {
-    Storage::revokeWrites();
+    // USB access belongs to the mounted export, not the BLE control session.
+    // Reconnecting must not write-protect a host filesystem with dirty caches.
     clearAllText(false);
     if (responseQueue != nullptr) {
       xQueueReset(responseQueue);
@@ -460,7 +461,7 @@ class ServerCallbacks : public BLEServerCallbacks {
 
   void onDisconnect(BLEServer *) override {
     FirmwareUpdate::disconnected();
-    Storage::revokeWrites();
+    // Keep an authorized R/W export writable until the USB host safely ejects.
     bleConnected = false;
     bleAuthenticated = false;
     advertising = false;

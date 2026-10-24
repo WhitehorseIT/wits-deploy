@@ -58,7 +58,7 @@ touch, JD9853 SPI LCD, AXS5106L I2C touch, 16MB flash, 8MB PSRAM, TF slot and
 full-speed USB. Dev10 now provides a separate hardware target and display/touch/storage
 adapters while retaining the shared BLE/protocol/controller behavior. See
 [Waveshare147 setup](boards/WAVESHARE147.md) for the first hardware tests and
-the portrait controls. Native USB throughput remains
+the landscape controls. Native USB throughput remains
 full-speed; the smaller display does not change the USB peripheral's ceiling.
 
 References:
@@ -76,10 +76,12 @@ prove the host has flushed its filesystem cache. Do not force re-enumeration
 during active writes or a HID command; USB disconnect may affect both classes.
 
 Recommended write permission is volatile: reboot always starts read-only.
-An unexpected app/BLE disconnect should deny further writes and report the
-loss of permission; recovery must account for potentially interrupted host
-writes. Do not pretend a forced disconnect safely flushed the PC. Define and
-validate the disconnect policy during the prototype before release.
+Dev13 ties a write grant to the USB export: app closure, BLE disconnect or
+reconnect, and pairing/bond changes retain R/W until confirmed host safe eject.
+The old BLE-coupled revocation interrupted a real copy reported by the user.
+A timer cannot prove host caches are flushed. Mode changes still require eject,
+and reset starts read-only. Keyboard disarming on BLE loss remains immediate.
+Post-fix copying across disconnect/reconnect needs physical validation.
 
 Use USB/the card reader for bulk installer provisioning initially; BLE remains
 the control path. Benchmark throughput before promising large-image deployment:

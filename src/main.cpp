@@ -357,12 +357,10 @@ void loop() {
     case StatusDisplay::Action::Stop: emergencyStop(); break;
     case StatusDisplay::Action::Pair:
       emergencyStop();
-      Storage::revokeWrites();
       BleTransport::startPairingWindow();
       break;
     case StatusDisplay::Action::Clear:
       emergencyStop();
-      Storage::revokeWrites();
       if (BleTransport::clearBonds()) StatusDisplay::showPairingCleared();
       break;
     case StatusDisplay::Action::Arm:

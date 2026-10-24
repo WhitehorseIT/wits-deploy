@@ -1,6 +1,6 @@
 # Firmware updates
 
-Current firmware: **0.2.0-dev12**; existing desktop app dev11 remains compatible. Use the app buttons
+Current firmware/app source: **0.2.0-dev13**. Existing app dev11 can install the firmware. Use the app buttons
 **OTA Update…** and **USB Flash/Update…**. Dev10 adds the Waveshare 1.47-inch
 target; its pairing and operation have been confirmed. Storage/recovery testing remains pending. Existing dev8/dev9 boards
 retain the same Bluetooth service layout and board codes.
@@ -8,7 +8,7 @@ retain the same Bluetooth service layout and board codes.
 ## One manifest, three board models
 
 Extract the entire firmware ZIP, preserving folders, then select
-`releases/firmware/0.2.0-dev12/WITS-Keyboard-Release-0.2.0-dev12.ota.json`.
+`releases/firmware/0.2.0-dev13/WITS-Keyboard-Release-0.2.0-dev13.ota.json`.
 It describes app and factory images for `tqtpro`, `waveshare7` and
 `waveshare147`. Each model uses a different binary; all units of the same
 model share one binary. The Bluetooth updater reads authenticated board info
@@ -99,8 +99,8 @@ full-sized packets remains unexplained; measure the live rate when testing.
 - A lost final acknowledgment can happen after commit. Check the board's
   version before assuming failure. Avoid interrupting final verification.
 - Storage is taken offline before flash writes. A previous writable export
-  still requires host safe eject even after Bluetooth write permission has
-  been revoked. A completed block write does not flush the host filesystem.
+  requires host safe eject. Dev13 retains the existing R/W grant through BLE
+  disconnect/reconnect and app closure rather than abruptly revoking writes. A completed block write does not flush the host filesystem.
 - SDK rollback is enabled. New firmware is confirmed after essential board IO,
   expected PSRAM and native USB startup, before display/BLE initialization.
   This does not prove later application behavior. Retain USB recovery access.

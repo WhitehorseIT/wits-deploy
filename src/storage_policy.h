@@ -11,8 +11,9 @@ struct Policy {
   bool writable = false;
   bool ejected = false;
   bool error = false;
-  // A host granted writes can have dirty cached data even after BLE revokes
-  // permission. Only the host's confirmed eject clears this requirement.
+  // A write grant lasts for this USB export, independently of BLE connect,
+  // disconnect, pairing and bond changes. Only confirmed host eject releases
+  // ownership; changing protection mid-mount can reject dirty cached writes.
   bool needsEject = false;
 
   constexpr Result configure(bool allowWrites) {
@@ -31,7 +32,6 @@ struct Policy {
     writable = false;
     needsEject = false;
   }
-  constexpr void revoke() { writable = false; }
   constexpr void fail() {
     writable = false;
     exported = false;

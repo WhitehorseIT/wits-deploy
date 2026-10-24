@@ -6,7 +6,7 @@ flashing notes. A release's common manifest lives one level above its model
 folders and refers to images using model-relative paths.
 
 The latest common manifest is
-`firmware/0.2.0-dev12/WITS-Keyboard-Release-0.2.0-dev12.ota.json`.
+`firmware/0.2.0-dev13/WITS-Keyboard-Release-0.2.0-dev13.ota.json`.
 It contains T-QT Pro, Waveshare7 and the Waveshare147 bring-up build. The new
 1.47-inch board needs physical validation; see its model folder's README.
 App-only distributions and instructions are in `desktop/<version>/`.

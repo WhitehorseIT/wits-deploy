@@ -18,8 +18,11 @@ constexpr bool policyTransitions() {
   if (p.canRead() || p.canWrite() || !p.ejected) return false;
   if (p.configure(true) != Result::Ok || !p.canWrite() || p.ejected) return false;
   if (p.configure(false) != Result::EjectFirst || !p.writable) return false;
-  p.revoke(); // BLE disconnect revokes writes without falsely claiming safe eject.
-  if (p.canWrite() || !p.canRead() || p.ejected || !p.needsEject) return false;
+  // Once granted, writes remain available for the entire mounted export.
+  // Neither another mode request nor a BLE control-session change releases
+  // host ownership. Only confirmed USB eject permits a protection change.
+  if (!p.canWrite() || !p.canRead() || p.ejected || !p.needsEject) return false;
+  if (p.configure(false) != Result::EjectFirst || !p.canWrite() || !p.needsEject) return false;
   p.eject();
   if (p.needsEject) return false;
   if (p.configure(false) != Result::Ok || p.canWrite() || !p.canRead()) return false;

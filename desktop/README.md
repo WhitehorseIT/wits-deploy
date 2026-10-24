@@ -184,3 +184,35 @@ is a first bring-up build with hardware tests pending. See its
 Bluetooth uses authenticated model information; blank-board USB installation
 requires you to choose the exact physical model. Flash capacity checks catch
 many mismatches but cannot identify all unrelated boards with matching memory.
+
+## Automatic reconnect (app dev13)
+
+Check the separate **Auto-connect** box for each saved board you want this PC
+to manage. This choice is saved independently of Target; Target still starts
+unchecked. The app watches HID advertisements, uses an existing OS bond and
+requires an authenticated response. It never starts PIN pairing in the
+background. First pairing and stale bonds use Connect/Re-pair manually.
+
+Dropped links retry with 5/10/20/40/60-second backoff. Manual Disconnect pauses
+that board until Connect, toggling Auto-connect, or restarting the app. Turning
+Auto-connect off cancels its pending attempt but keeps an established connection.
+Connection setup, background/explicit scans and OTA transfers share an adapter
+lock; attempts are serialized. Watching/connecting/retry/pause messages appear
+in Last result and the event log. Authentication failures pause retries.
+
+## Writable USB storage lifetime (firmware dev13)
+
+A granted R/W USB export stays writable when this app closes, Bluetooth drops,
+or another control connection is established. This also applies when opening
+pairing or clearing bonds. The USB host may still have cached writes, so BLE
+control changes must not write-protect a mounted filesystem. Keyboard output
+still stops and disarms on disconnect.
+
+Read-only is the boot default. Granting R/W or changing mode requires the usual
+authenticated, disarmed operation and host safe eject. A grant lasts until
+confirmed host eject, media error or reset. OTA/programming restart remains
+blocked while a writable host export needs eject. There is no automatic host
+filesystem flush and no grace timer that assumes cached writes are complete.
+Dev12 and earlier revoked writes immediately on disconnect/reconnect, which
+can interrupt a copy. Flash dev13 for this fix; recompiling only the app is
+not sufficient. Verify any previously interrupted copies against their source.

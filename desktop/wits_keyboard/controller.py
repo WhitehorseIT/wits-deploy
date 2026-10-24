@@ -10,6 +10,7 @@ from typing import Any, Callable, Iterable
 
 from . import protocol
 from .session import BoardSession
+from .auto_connect import AutoConnector
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +28,18 @@ class KeyboardController:
         self.event_callback = event_callback
         self.pairing_callback = pairing_callback
         self.scan_lock = asyncio.Lock()
+        self.radio_lock = asyncio.Lock()
         self.devices: dict[str, Any] = {}
         self.known_devices: dict[str, DiscoveredBoard] = {}
         self.sessions: dict[str, BoardSession] = {}
         self.connect_tasks: dict[str, asyncio.Task[None]] = {}
         self.repair_tasks: dict[str, asyncio.Task[None]] = {}
+        self.reconnector = AutoConnector(self)
+
+    async def set_auto_connect(self, address: str, enabled: bool) -> None:
+        if address not in self.known_devices:
+            raise RuntimeError("Save or scan this board before enabling Auto-connect")
+        self.reconnector.configure(address, enabled)
 
     def _emit(self, address: str, event: str, **details: Any) -> None:
         self.event_callback(address, event, details)
@@ -46,7 +54,7 @@ class KeyboardController:
 
         logger.info("BLE scan begin timeout=%.1f service=%s", timeout, protocol.SERVICE_UUID)
         try:
-            async with self.scan_lock:
+            async with self.radio_lock, self.scan_lock:
                 found = await BleakScanner.discover(
                     timeout=timeout, service_uuids=[protocol.SERVICE_UUID]
                 )
@@ -64,14 +72,16 @@ class KeyboardController:
         boards.sort(key=lambda board: (board.name.casefold(), board.address))
         return boards
 
-    async def connect(self, address: str) -> None:
+    async def connect(self, address: str, *, allow_pairing: bool = True) -> None:
         logger.info("Controller connect address=%s", address)
         if address not in self.devices and address not in self.known_devices:
             raise RuntimeError("scan for this board before connecting")
+        if allow_pairing:
+            self.reconnector.resume(address)
         task = self.connect_tasks.get(address)
         if task is None or task.done():
             task = asyncio.create_task(
-                self._connect(address), name=f"connect-{address}"
+                self._connect(address, allow_pairing=allow_pairing), name=f"connect-{address}"
             )
             self.connect_tasks[address] = task
         else:
@@ -108,18 +118,20 @@ class KeyboardController:
         self.devices[address] = device
         return device
 
-    async def _connect(self, address: str) -> None:
-        device = await self._resolve_device(address)
-        session = self.sessions.get(address)
-        if session is None:
-            session = BoardSession(device, self.event_callback, pairing_callback=self.pairing_callback)
-            self.sessions[address] = session
-        else:
-            session.device = device
-        await session.connect()
+    async def _connect(self, address: str, *, allow_pairing: bool = True) -> None:
+        async with self.radio_lock:
+            device = await self._resolve_device(address)
+            session = self.sessions.get(address)
+            if session is None:
+                session = BoardSession(device, self.event_callback, pairing_callback=self.pairing_callback)
+                self.sessions[address] = session
+            else:
+                session.device = device
+            await session.connect(allow_pairing=allow_pairing)
 
     async def repair(self, address: str, timeout: float = 12.0) -> None:
         """Forget a stale OS bond, rediscover the board, and pair again."""
+        self.reconnector.pause(address)
         task = self.repair_tasks.get(address)
         if task is None or task.done():
             task = asyncio.create_task(self._repair(address, timeout), name=f"repair-{address}")
@@ -141,14 +153,14 @@ class KeyboardController:
             existing_task.cancel()
             await asyncio.gather(existing_task, return_exceptions=True)
 
-        await self._resolve_device(address)
-
-        session = self.sessions.get(address)
-        if session is None:
-            session = BoardSession(self.devices[address], self.event_callback,
-                                   pairing_callback=self.pairing_callback)
-        await session.forget_bond()
-        self.sessions.pop(address, None)
+        async with self.radio_lock:
+            await self._resolve_device(address)
+            session = self.sessions.get(address)
+            if session is None:
+                session = BoardSession(self.devices[address], self.event_callback,
+                                       pairing_callback=self.pairing_callback)
+            await session.forget_bond()
+            self.sessions.pop(address, None)
 
         boards = await self.scan(timeout=timeout)
         if not any(board.address == address for board in boards):
@@ -162,6 +174,7 @@ class KeyboardController:
 
     async def disconnect(self, address: str) -> None:
         logger.info("Controller disconnect address=%s", address)
+        self.reconnector.pause(address)
         task = self.repair_tasks.get(address) or self.connect_tasks.get(address)
         if task is not None and not task.done():
             task.cancel()
@@ -172,6 +185,7 @@ class KeyboardController:
 
     async def disconnect_all(self) -> None:
         logger.info("Disconnect all sessions count=%d", len(self.sessions))
+        await self.reconnector.stop()
         for task in tuple(self.repair_tasks.values()):
             if not task.done():
                 task.cancel()
@@ -210,7 +224,8 @@ class KeyboardController:
         await self._connected(address).storage_mode(allow_writes)
 
     async def update_firmware(self, address, image, progress, cancelled=None):
-        await self._connected(address).update_firmware(image, progress, cancelled)
+        async with self.radio_lock:
+            await self._connected(address).update_firmware(image, progress, cancelled)
 
     async def key_action(self, address: str, key_code: int, modifiers: int) -> None:
         logger.info(

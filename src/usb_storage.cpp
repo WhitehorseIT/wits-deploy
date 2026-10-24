@@ -76,7 +76,7 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
       result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
     if (result == ESP_OK) {
       if (write) {
-        // Recheck a revoked grant after a partial-sector read.
+        // Recheck media state after a partial-sector read.
         if (!readPolicy().canWrite()) {
           tud_msc_set_sense(0, SCSI_SENSE_DATA_PROTECT, 0x27, 0);
           xSemaphoreGive(ioMutex);
@@ -220,14 +220,6 @@ void begin() {
   msc->mediaPresent(ok && registered);
 }
 
-void revokeWrites() {
-  if (!ioMutex) return;
-  portENTER_CRITICAL(&stateMux);
-  policy.revoke();
-  portEXIT_CRITICAL(&stateMux);
-  msc->isWritable(false);
-}
-
 Result configure(bool allowWrites) {
   if (!ioMutex) return Result::NoCard;
   // BLE callbacks must never wait behind a slow SD transaction.
@@ -302,7 +294,6 @@ extern "C" int32_t __wrap_tud_msc_scsi_cb(uint8_t lun, const uint8_t command[16]
 namespace Storage {
 void begin() {}
 void loop() {}
-void revokeWrites() {}
 bool prepareRestart() { return true; }
 Result configure(bool) { return Result::Unsupported; }
 Snapshot snapshot() { return {}; }

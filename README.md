@@ -9,7 +9,7 @@ provide MicroSD-backed USB storage.
 
 ## Features
 
-- Control multiple devices with saved names and individual targets.
+- Control multiple devices with saved names, individual targets and optional automatic reconnect.
 - Send text, special keys, and keyboard shortcuts with adjustable start and
   character delays.
 - Physically arm devices before typing, with visible status and STOP controls.
@@ -27,7 +27,7 @@ provide MicroSD-backed USB storage.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | Initial pairing and operation confirmed; storage/recovery tests pending |
 
-Current firmware/app source: **0.2.0-dev12**; verified Linux native app: **0.2.0-dev11**. Bluetooth OTA has been tested on
+Current firmware/app source: **0.2.0-dev13**; verified Linux native app: **0.2.0-dev13**. Bluetooth OTA has been tested on
 the T-QT Pro and 7-inch boards. Storage/OTA on the 1.47-inch board, USB slot-aware
 updates and interrupted-update recovery still need hardware validation.
 
@@ -40,7 +40,8 @@ dedicated display/touch adapter, USB keyboard and storage, Bluetooth OTA, and
 USB flashing through the same desktop app. Initial pairing and operation have been confirmed by the user;
 see the [setup and test guide](docs/boards/WAVESHARE147.md). Dev11 uses a
 320 × 172 landscape layout for its case, with USB-C on the right. Dev12
-enlarges its secondary text and upper-right version label.
+enlarges its secondary text and upper-right version label. Dev13 preserves
+R/W USB storage through app closure and Bluetooth reconnects.
 
 ## Get started
 
@@ -90,7 +91,6 @@ The 1.47-inch board uses its single USB-C connector for both roles.
 - [Waveshare 1.47-inch first flash](docs/boards/WAVESHARE147.md)
 - [Storage design and hardware roadmap](docs/STORAGE-PLAN.md)
 - [Web controller deployment](deploy/README.md)
-- [Historical handoffs](docs/handoffs/README.md)
 
 Git tracks source, documentation, release manifests, and checksums. Generated
 binaries, ZIPs, environments, and runtime logs are excluded. A source clone

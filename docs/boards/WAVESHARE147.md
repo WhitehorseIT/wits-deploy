@@ -1,6 +1,6 @@
 # Waveshare ESP32-S3-Touch-LCD-1.47
 
-The `waveshare147` target uses firmware **0.2.0-dev12**. The user confirmed
+The `waveshare147` target uses firmware **0.2.0-dev13**. The user confirmed
 pairing and operation on the landscape dev11 build. Dev12 enlarges the version
 label, two-line guidance beneath the ID, pairing instructions, Identify aliases
 and storage status. The PIN/countdown retain separate lines. This font update
@@ -54,7 +54,7 @@ Replace the port if necessary. The helper verifies file hashes, requires an
 ESP32-S3 and exactly 16 MB flash, installs the complete factory image at zero,
 and verifies the written contents. This clears existing board settings.
 Press RESET after success. Expect a blue **PROGRAM** screen and version
-**0.2.0-dev12**. This is the first physical test, so begin without a MicroSD card.
+**0.2.0-dev13**. This is the first physical test, so begin without a MicroSD card.
 
 Alternatively, use desktop app dev10 **USB Flash/Update…**, select
 **Waveshare 1.47-inch touch**, the board's serial port and the common release
@@ -113,9 +113,19 @@ overwrite app0 after OTA without checking which slot is selected.
 
 ```bash
 .venv-pio/bin/pio run -e waveshare147
-bash scripts/build-release.sh 0.2.0-dev12 waveshare147
+bash scripts/build-release.sh 0.2.0-dev13 waveshare147
 ```
 
-Generated files live under `releases/firmware/0.2.0-dev12/waveshare147/`.
+Generated files live under `releases/firmware/0.2.0-dev13/waveshare147/`.
 The app's common JSON chooses the binary by model, not by a device's friendly
 name. Every unit of this exact model uses the same binary.
+
+## Dev13 storage disconnect fix
+
+The user reported an active copy failing when closing the app immediately
+changed the board to read-only. BLE connect/disconnect and pairing actions no
+longer revoke a granted USB R/W export. Access is retained until host safe
+eject; reset remains read-only by default. Keyboard disconnect still stops
+and disarms. This policy needs a real copy/disconnect/reconnect/eject/hash test.
+App dev13 adds opt-in automatic reconnect; existing apps can install dev13
+firmware by selecting its common JSON.

@@ -31,6 +31,23 @@ Current firmware/app source: **0.2.0-dev13**; verified Linux native app: **0.2.0
 the T-QT Pro and 7-inch boards. Storage/OTA on the 1.47-inch board, USB slot-aware
 updates and interrupted-update recovery still need hardware validation.
 
+### Where to buy
+
+These links go to each manufacturer's own product page. **They are not partner,
+affiliate, or referral links, and Whitehorse IT Solutions earns nothing from them.**
+Variants and prices change, so confirm the details below before ordering.
+
+| Board | Official page | Buy this variant |
+| --- | --- | --- |
+| LILYGO T-QT Pro | [lilygo.cc/en-us/products/t-qt-pro](https://lilygo.cc/en-us/products/t-qt-pro) | A model with the **ESP32-S3FN4R2** chip (4 MB flash, 2 MB PSRAM). Header and case options do not matter. Avoid the ESP32-S3FN8 models, which have no PSRAM. |
+| Waveshare ESP32-S3-Touch-LCD-7 | [waveshare.com/esp32-s3-touch-lcd-7.htm](https://www.waveshare.com/esp32-s3-touch-lcd-7.htm) | A **touch** version. The non-touch ESP32-S3-LCD-7 will not work with the touch controls. The firmware targets this base model, not the 7B or 7C boards. |
+| Waveshare ESP32-S3-Touch-LCD-1.47 | [waveshare.com/esp32-s3-touch-lcd-1.47.htm](https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm) | The standard version, or the `-M` version with pin headers. |
+
+Documentation for each board is on the manufacturers' sites:
+[T-QT Pro](https://github.com/Xinyuan-LilyGO/T-QT),
+[Waveshare 7-inch](https://docs.waveshare.com/ESP32-S3-Touch-LCD-7),
+[Waveshare 1.47-inch](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47).
+
 ### Waveshare 1.47-inch touch board
 
 The newest hardware target is the

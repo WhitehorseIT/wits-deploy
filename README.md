@@ -25,11 +25,20 @@ provide MicroSD-backed USB storage.
 | --- | --- | --- |
 | LILYGO T-QT Pro | `tqtpro` | Supported |
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
-| Waveshare ESP32-S3-Touch-LCD-1.47 | — | Planned |
+| Waveshare ESP32-S3-Touch-LCD-1.47 | — | Coming next |
 
 Current development version: **0.2.0-dev9**. Bluetooth OTA has been tested on
 both supported boards. USB update/factory installation and interrupted-update
 recovery still need hardware validation.
+
+### Coming next: Waveshare 1.47-inch touch board
+
+The next planned hardware target is the
+[Waveshare ESP32-S3-Touch-LCD-1.47](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.47),
+with a 172 × 320 capacitive touchscreen and MicroSD slot. Planned support includes
+USB keyboard entry, deployment storage, Bluetooth OTA, and USB flashing through
+the same desktop app. Its dedicated firmware port is pending; see the
+[hardware roadmap](docs/STORAGE-PLAN.md#confirmed-next-board--2026-10-24).
 
 ## Get started
 

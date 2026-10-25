@@ -127,7 +127,19 @@ Keep a change only if it is faster in all three runs and every safety check pass
 | Build | Change | Result |
 | --- | --- | --- |
 | dev15 | baseline (see above) | write 0.42 MB/s, read 0.51 MB/s |
-| dev16 | B1 read-ahead: a sequential read triggers one 32 KiB card read, the next callbacks are served from RAM; the window is dropped on any write, eject, mode change, error or restart (compile-time tests in `tests/storage_policy_test.cpp`) | built and checksummed, not yet measured on hardware. Expected: read toward 0.75 MB/s. Writes are unchanged and should still measure about 0.42 MB/s |
+| dev16 | B1 read-ahead: a sequential read triggers one 32 KiB card read, the next callbacks are served from RAM; the window is dropped on any write, eject, mode change, error or restart (compile-time tests in `tests/storage_policy_test.cpp`) | Measured 2026-10-25: read 0.58 MB/s (54.7 s for 32 MiB, was 62.9 s), write 0.42 MB/s unchanged (75.3 s), readback matches. Read gain is 14%, below the 45% predicted |
+
+Why the read gain was small: per 4 KiB callback the read took 6.7 ms (was 7.7 ms). A 4 KiB USB transfer at
+full speed takes about 3.4 ms, so about 3.3 ms per callback is still the SD card. That fits roughly 22 ms
+to fetch a 32 KiB window (64 separate 512-byte block transactions in the ESP-IDF SD-SPI driver, about
+0.35 ms each, a raw SD read rate near 1.4 MB/s) and means the card read and the USB transfer still happen
+one after the other. The remaining read gain is from overlapping them: prefetch the next window from a
+background task while USB sends the current one (double buffer, reads only).
+
+Writes cannot overlap the same way without a write-behind buffer, because TinyUSB does not accept the
+next 4 KiB until the write callback returns. That is the deliberate no-write-cache rule; changing it is
+the user's decision. The product's main flow is reading installers from the board on target machines, and
+the card can be filled with an ordinary card reader at full speed, so read speed matters most.
 
 ## Acceptance
 

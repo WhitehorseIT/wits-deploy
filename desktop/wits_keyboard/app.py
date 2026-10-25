@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -357,10 +358,17 @@ class MainWindow(QMainWindow):
         self.device_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.device_tree.setRootIsDecorated(False)
         self.device_tree.setAlternatingRowColors(True)
-        self.device_tree.setColumnWidth(0, 64)
         self.device_tree.setColumnWidth(1, 185)
         self.device_tree.setColumnWidth(2, 145)
-        self.device_tree.setColumnWidth(4, 100)
+        # Keep both checkbox columns visible in a narrow window: show Auto-connect
+        # beside Target, size those two to their contents, and let the last
+        # visible column (Last result) absorb or clip the leftover space.
+        header = self.device_tree.header()
+        header.moveSection(4, 1)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(True)
+        self.device_tree.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.device_tree.itemChanged.connect(self._device_option_changed)
         self.device_tree.itemSelectionChanged.connect(self._update_management_buttons)
         layout.addWidget(self.device_tree, 1)

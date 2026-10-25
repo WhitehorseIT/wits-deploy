@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtCore import QSettings
+    from PySide6.QtCore import QSettings, Qt
     from PySide6.QtWidgets import QApplication, QHeaderView
     from wits_keyboard.app import MainWindow
     from wits_keyboard.controller import DiscoveredBoard
@@ -51,6 +51,35 @@ class DeviceListLayoutTests(unittest.TestCase):
         self.app.processEvents()
         edge = tree.columnViewportPosition(AUTO) + tree.columnWidth(AUTO)
         self.assertLessEqual(edge, tree.viewport().width())
+
+    def test_boards_are_on_top_at_full_width_with_every_control_visible(self):
+        window = self.window
+        window.resize(1180, 940)
+        window.show()
+        self.app.processEvents()
+        splitter = window.main_splitter
+        self.assertEqual(splitter.orientation(), Qt.Orientation.Vertical)
+        self.assertTrue(splitter.widget(0).isAncestorOf(window.device_tree))
+        self.assertGreater(window.device_tree.width(), window.width() * 0.9)
+        for button in (window.scan_button, window.connect_button, window.repair_button,
+                       window.disconnect_button, window.storage_refresh_button,
+                       window.storage_readonly_button, window.storage_writable_button):
+            self.assertTrue(button.isVisible())
+            self.assertGreater(button.width(), 0)
+
+    def test_special_keys_sit_beside_the_text_box(self):
+        window = self.window
+        window.resize(1180, 940)
+        window.show()
+        self.app.processEvents()
+        editor_right = window.text_editor.mapTo(window, window.text_editor.rect().topRight()).x()
+        key_left = window.key_buttons[0].mapTo(window, window.key_buttons[0].rect().topLeft()).x()
+        self.assertGreater(key_left, editor_right)
+
+    def test_splitter_position_is_remembered(self):
+        self.window.main_splitter.setSizes([400, 400])
+        self.window._save_splitter_sizes()
+        self.assertEqual(self.window._saved_splitter_sizes(), self.window.main_splitter.sizes())
 
 
 if __name__ == "__main__":

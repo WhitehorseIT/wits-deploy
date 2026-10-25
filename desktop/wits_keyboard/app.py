@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QSpinBox,
     QTreeWidget,
@@ -172,7 +173,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"WITS Deploy {__version__}")
-        self.resize(1180, 760)
+        self.resize(1180, 940)
 
         self.bridge = UiBridge()
         self.controller = KeyboardController(
@@ -327,11 +328,20 @@ class MainWindow(QMainWindow):
         diagnostic.setStyleSheet("color: #68727d;")
         root_layout.addWidget(diagnostic)
 
-        splitter = QSplitter()
+        # Boards across the top give the list the full window width; the sending
+        # controls sit below and scroll if the window is short.
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter = splitter
+        splitter.setChildrenCollapsible(False)
         root_layout.addWidget(splitter, 1)
         splitter.addWidget(self._build_devices_panel())
-        splitter.addWidget(self._build_actions_panel())
-        splitter.setSizes([520, 660])
+        actions = QScrollArea()
+        actions.setWidgetResizable(True)
+        actions.setFrameShape(QScrollArea.Shape.NoFrame)
+        actions.setWidget(self._build_actions_panel())
+        splitter.addWidget(actions)
+        splitter.setSizes(self._saved_splitter_sizes())
+        splitter.splitterMoved.connect(self._save_splitter_sizes)
 
         bottom = QHBoxLayout()
         self.status_label = QLabel("Ready to scan")
@@ -347,6 +357,7 @@ class MainWindow(QMainWindow):
 
     def _build_devices_panel(self) -> QWidget:
         panel = QWidget()
+        panel.setMinimumHeight(290)
         layout = QVBoxLayout(panel)
 
         title = QLabel("Devices")
@@ -371,6 +382,7 @@ class MainWindow(QMainWindow):
         self.device_tree.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.device_tree.itemChanged.connect(self._device_option_changed)
         self.device_tree.itemSelectionChanged.connect(self._update_management_buttons)
+        self.device_tree.setMinimumHeight(130)
         layout.addWidget(self.device_tree, 1)
 
         row = QHBoxLayout()
@@ -387,9 +399,7 @@ class MainWindow(QMainWindow):
         self.disconnect_button = QPushButton("Disconnect")
         self.disconnect_button.clicked.connect(self._disconnect_selected)
         row.addWidget(self.disconnect_button)
-        layout.addLayout(row)
-
-        row = QHBoxLayout()
+        row.addSpacing(24)
         ping = QPushButton("Ping")
         ping.clicked.connect(self._ping_selected)
         row.addWidget(ping)
@@ -405,13 +415,12 @@ class MainWindow(QMainWindow):
         usb_flash = QPushButton("USB Flash/Update…")
         usb_flash.clicked.connect(self._flash_usb)
         row.addWidget(usb_flash)
-        layout.addLayout(row)
-
+        row.addSpacing(24)
         self.ping_status_label = QLabel("Ping: not run")
         self.ping_status_label.setTextFormat(Qt.TextFormat.PlainText)
-        self.ping_status_label.setWordWrap(True)
         self.ping_status_label.setStyleSheet("font-weight: 600;")
-        layout.addWidget(self.ping_status_label)
+        row.addWidget(self.ping_status_label, 1)
+        layout.addLayout(row)
 
         storage_row = QHBoxLayout()
         self.storage_refresh_button = QPushButton("Storage status")
@@ -423,21 +432,18 @@ class MainWindow(QMainWindow):
         self.storage_writable_button = QPushButton("Mount read/write")
         self.storage_writable_button.clicked.connect(lambda: self._storage_selected(True))
         storage_row.addWidget(self.storage_writable_button)
-        layout.addLayout(storage_row)
+        storage_row.addSpacing(24)
         self.storage_status_label = QLabel("Storage: highlight one connected board")
         self.storage_status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.storage_status_label.setWordWrap(True)
-        layout.addWidget(self.storage_status_label)
-        storage_note = QLabel(
-            "To change SD access: disarm, safely eject the USB drive on the target computer, "
-            "then refresh Storage status and choose its access mode."
-        )
-        storage_note.setWordWrap(True)
-        layout.addWidget(storage_note)
+        storage_row.addWidget(self.storage_status_label, 1)
+        layout.addLayout(storage_row)
 
         note = QLabel(
-            "Highlight rows for Connect/Disconnect/Ping/Identify. The checkboxes in "
-            "the Target column independently control where text and keys are sent."
+            "Highlight rows for Connect/Disconnect/Ping/Identify; the Target checkboxes "
+            "independently control where text and keys are sent. To change SD access: "
+            "disarm, safely eject the USB drive on the target computer, then refresh "
+            "Storage status and choose its access mode."
         )
         note.setWordWrap(True)
         note.setStyleSheet("color: #68727d;")
@@ -502,6 +508,7 @@ class MainWindow(QMainWindow):
         self.text_editor = QPlainTextEdit()
         self.text_editor.setPlaceholderText("Paste a password, product key, or deployment text")
         self.text_editor.textChanged.connect(self._text_changed)
+        self.text_editor.setMinimumHeight(90)
         editor_layout.addWidget(self.text_editor, 1)
 
         options = QHBoxLayout()
@@ -525,7 +532,10 @@ class MainWindow(QMainWindow):
         stop_selected.clicked.connect(self._stop_selected)
         send_row.addWidget(stop_selected)
         editor_layout.addLayout(send_row)
-        layout.addWidget(editor_group, 1)
+        # Special keys sit beside the text box, using the width of the wide panel.
+        middle = QHBoxLayout()
+        middle.addWidget(editor_group, 3)
+        layout.addLayout(middle, 1)
 
         key_group = QGroupBox("Special keys — exactly one target")
         key_layout = QGridLayout(key_group)
@@ -549,26 +559,38 @@ class MainWindow(QMainWindow):
                 lambda _checked=False, code=key_code, mods=modifiers, name=label:
                 self._send_key(code, mods, name)
             )
-            key_layout.addWidget(button, index // 4, index % 4)
+            key_layout.addWidget(button, index // 3, index % 3)
             self.key_buttons.append(button)
 
         secure_attention = QPushButton("Ctrl+Alt+Delete")
         secure_attention.setStyleSheet("font-weight: 700;")
         secure_attention.clicked.connect(self._secure_attention)
-        key_layout.addWidget(secure_attention, 3, 0, 1, 4)
+        key_layout.addWidget(secure_attention, 4, 0, 1, 3)
         self.key_buttons.append(secure_attention)
-        layout.addWidget(key_group)
+        middle.addWidget(key_group, 2, Qt.AlignmentFlag.AlignTop)
 
         log_group = QGroupBox("Event log — metadata only")
         log_layout = QVBoxLayout(log_group)
         self.event_log = QListWidget()
-        self.event_log.setMaximumHeight(140)
+        self.event_log.setMaximumHeight(64)
         log_layout.addWidget(self.event_log)
         clear_log = QPushButton("Clear log")
         clear_log.clicked.connect(self.event_log.clear)
         log_layout.addWidget(clear_log)
         layout.addWidget(log_group)
         return panel
+
+    def _saved_splitter_sizes(self) -> list[int]:
+        try:
+            sizes = [int(value) for value in self.settings.value("ui/splitter_sizes", [330, 520])]
+            if len(sizes) == 2 and all(value > 0 for value in sizes):
+                return sizes
+        except (TypeError, ValueError):
+            pass
+        return [330, 520]
+
+    def _save_splitter_sizes(self, *_args) -> None:
+        self.settings.setValue("ui/splitter_sizes", self.main_splitter.sizes())
 
     def _log(self, message: str) -> None:
         self.event_log.insertItem(0, message)

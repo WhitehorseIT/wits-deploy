@@ -43,8 +43,11 @@ def main(output):
             help_check = subprocess.run(worker_command("esptool", "--help"), capture_output=True,
                                         text=True, encoding="utf-8", timeout=30,
                                         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
-            if help_check.returncode or "write-flash" not in help_check.stdout:
-                raise RuntimeError("Bundled esptool CLI did not start correctly")
+            # Some platforms return no captured stream; treat that as empty text.
+            help_text = (help_check.stdout or "") + (help_check.stderr or "")
+            if help_check.returncode or "write-flash" not in help_text:
+                raise RuntimeError(f"Bundled esptool CLI did not start correctly: "
+                                   f"exit={help_check.returncode} output={help_text[-400:]!r}")
         result["ok"] = True
     except Exception as error:
         result["error"] = str(error)

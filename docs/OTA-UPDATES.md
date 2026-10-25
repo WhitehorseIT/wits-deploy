@@ -126,12 +126,13 @@ need physical validation. See each model guide for its bring-up sequence.
 
 ## Firmware version colors and the update check
 
-The board list's **Firmware** column is colored against the newest known release: green is current,
-yellow means an update is available, red means a critical update. At startup the app asks GitHub
-for the latest published release (one anonymous request, nothing about your boards is sent) and
+The board list's **Firmware** column is highlighted against the newest known release: green is
+current, yellow means an update is available, red means a critical update. At startup the app asks
+GitHub for the newest published release (anonymous requests; nothing about your boards is sent) and
 compares against that and the firmware bundled with the app; offline, only the bundled version is
-used. It only notifies: nothing is downloaded or installed automatically. To turn the check off,
-set the environment variable `WITS_DEPLOY_NO_UPDATE_CHECK=1`.
+used. To turn the check off, set the environment variable `WITS_DEPLOY_NO_UPDATE_CHECK=1`.
 
-A release is marked critical by putting a line `Critical-below: X.Y.Z` in its release notes; boards
-running anything older than that version turn red.
+Red comes only from a release's **signed manifest** (`critical_below`), never from release notes.
+When a release's signature verifies, **OTA Update…** also offers **Download latest firmware**: the
+app downloads the firmware bundle, checks it against the signed size and SHA-256, and only then
+offers it for upload. See [release signing](RELEASE-SIGNING.md).

@@ -13,9 +13,11 @@ from .file_choice import choose_manifest
 class FirmwareDialog(QDialog):
     progress = Signal(str, int)
     finished_upload = Signal(bool, str)
+    downloaded = Signal(object, str)  # manifest path or None, message
 
-    def __init__(self, runner, controller, address, name="Selected board", parent=None):
+    def __init__(self, runner, controller, address, name="Selected board", parent=None, signed_release=None):
         super().__init__(parent)
+        self.signed_release = signed_release
         self.runner = runner
         self.controller = controller
         self.address = address
@@ -33,6 +35,13 @@ class FirmwareDialog(QDialog):
         instructions.setTextFormat(Qt.TextFormat.PlainText)
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
+        self.download = QPushButton("Download latest firmware")
+        self.download.clicked.connect(self._download)
+        if self.signed_release is not None and "firmware" in self.signed_release.assets:
+            self.download.setText(f"Download latest firmware ({self.signed_release.version}, signature verified)")
+            layout.addWidget(self.download)
+        else:
+            self.download.hide()
         self.choose = QPushButton("Choose firmware .ota.json manifest…")
         self.choose.clicked.connect(self._choose)
         layout.addWidget(self.choose)
@@ -57,6 +66,7 @@ class FirmwareDialog(QDialog):
         layout.addLayout(row)
         self.progress.connect(self._progress)
         self.finished_upload.connect(self._finished)
+        self.downloaded.connect(self._downloaded)
         try:
             path = bundled_manifest()
             if path:
@@ -70,11 +80,35 @@ class FirmwareDialog(QDialog):
             return
         self._load_manifest(path)
 
-    def _load_manifest(self, path, included=False):
+    def _download(self):
+        from . import online_release
+        release = self.signed_release
+        self.download.setEnabled(False)
+        self.status.setText(f"Downloading firmware {release.version}…")
+
+        def work():
+            try:
+                path = online_release.download_firmware(
+                    release, progress=lambda done, total: self.progress.emit(
+                        f"Downloading firmware {release.version}… {done // 1024:,} of {total // 1024:,} KiB", 0))
+                self.downloaded.emit(path, "")
+            except Exception as error:
+                self.downloaded.emit(None, safe_error(error))
+        threading.Thread(target=work, name="wits-firmware-download", daemon=True).start()
+
+    def _downloaded(self, path, message):
+        self.download.setEnabled(True)
+        if path is None:
+            self.status.setText("Download failed; nothing was changed. " + message)
+            return
+        self._load_manifest(path, source="Verified download")
+        self.status.setText("Download verified against the signed release manifest.")
+
+    def _load_manifest(self, path, included=False, source=None):
         try:
             self.image = load_release(path)
             models = ", ".join(BOARD_NAMES[target.board] for target in self.image.targets)
-            self.image_label.setText(f"{'Included firmware' if included else 'Release'} {self.image.version} · {models}\n"
+            self.image_label.setText(f"{source or ('Included firmware' if included else 'Release')} {self.image.version} · {models}\n"
                                      "The app will select and verify this board's matching binary before uploading.")
             self.upload.setEnabled(True)
         except Exception as error:

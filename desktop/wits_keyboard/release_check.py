@@ -11,7 +11,6 @@ from . import __version__
 
 RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases?per_page=30"
 DISABLE_ENV = "WITS_DEPLOY_NO_UPDATE_CHECK"
-CRITICAL_LINE = re.compile(r"^\s*critical-below\s*:\s*v?([0-9A-Za-z][0-9A-Za-z.\-]*)\s*$", re.I | re.M)
 _STAGE = {"dev": 0, "rc": 1}
 
 CURRENT, UPDATE, CRITICAL = "current", "update", "critical"
@@ -58,8 +57,7 @@ def from_release_json(data: dict) -> Latest | None:
     tag = str(data.get("tag_name") or "").strip().lstrip("v")
     if not parse_version(tag):
         return None
-    match = CRITICAL_LINE.search(str(data.get("body") or ""))
-    return Latest(tag, match.group(1) if match else None)
+    return Latest(tag)  # release notes are not trusted for critical flags; see signing.py
 
 
 def from_release_list(releases) -> Latest | None:

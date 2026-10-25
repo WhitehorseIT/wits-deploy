@@ -39,3 +39,12 @@ def log_directory():
         return root / "Whitehorse IT Solutions" / "WITS Deploy" / "logs"
     root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
     return root / "wits-deploy" / "logs"
+
+
+def data_directory():
+    """Per-user folder for downloaded firmware and update state (never inside the install)."""
+    if sys.platform == "win32":
+        root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        return root / "Whitehorse IT Solutions" / "WITS Deploy" / "data"
+    root = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return root / "wits-deploy"

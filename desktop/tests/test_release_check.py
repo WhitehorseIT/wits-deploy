@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from wits_keyboard import release_check as rc
+from wits_keyboard.online_release import SignedRelease
 from wits_keyboard.release_check import Latest
 
 try:
@@ -40,15 +41,15 @@ class VersionTests(unittest.TestCase):
 
     def test_release_json(self):
         data = {"tag_name": "v0.2.0", "body": "Notes\nCritical-below: 0.1.1\n"}
-        self.assertEqual(rc.from_release_json(data), Latest("0.2.0", "0.1.1"))
+        self.assertEqual(rc.from_release_json(data), Latest("0.2.0"))  # release notes cannot raise a critical flag
         self.assertEqual(rc.from_release_json({"tag_name": "v0.3.0", "body": None}), Latest("0.3.0"))
         self.assertIsNone(rc.from_release_json({"tag_name": "nightly"}))
 
     def test_release_list_picks_the_highest_non_draft_including_prereleases(self):
         releases = [{"tag_name": "v0.2.0-dev18", "prerelease": True},
                     {"tag_name": "v0.3.0", "draft": True},
-                    {"tag_name": "v0.2.0-dev19", "prerelease": True, "body": "Critical-below: 0.2.0-dev17"}]
-        self.assertEqual(rc.from_release_list(releases), Latest("0.2.0-dev19", "0.2.0-dev17"))
+                    {"tag_name": "v0.2.0-dev19", "prerelease": True}]
+        self.assertEqual(rc.from_release_list(releases), Latest("0.2.0-dev19"))
         self.assertIsNone(rc.from_release_list([]))
         self.assertIsNone(rc.from_release_list({"message": "rate limited"}))
 
@@ -82,9 +83,11 @@ class ColumnTests(unittest.TestCase):
             self.assertEqual(color(), "#145c43")
             window._show_firmware("A", "0.2.0-dev17")
             self.assertEqual(color(), "#8a6500")
-            window._latest_release_known(Latest("0.2.0", "0.2.0-dev17"))
+            window._latest_release_known((Latest("0.2.0"), SignedRelease("0.2.0", "0.2.0-dev17", {})))
             self.assertEqual(color(), "#8a6500")  # dev17 meets the floor, so only an update
-            window._latest_release_known(Latest("0.2.1", "0.2.0-dev18"))
+            window._latest_release_known((Latest("0.2.1"), SignedRelease("0.2.1", "0.2.0-dev18", {"firmware": {}})))
+            self.assertEqual(window.signed_release.version, "0.2.1")
+            window._latest_release_known((Latest("0.2.1"), None))  # unsigned: keeps the earlier verified release
             self.assertEqual(color(), "#a71927")
             self.assertEqual(window.items["A"].foreground(5).color().name(), "#ffffff")
             window._show_firmware("A", "unknown")

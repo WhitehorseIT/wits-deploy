@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, protocol
 from .controller import DiscoveredBoard, KeyboardController
-from . import release_check
+from . import online_release, release_check
 from .storage_stats import summarize as summarize_storage_io
 from .logging_config import LOG_PATH, safe_error
 
@@ -87,7 +87,7 @@ class UiBridge(QObject):
     passkey_requested = Signal(object)
     passkey_finished = Signal(str)
     management_finished = Signal(str, str)
-    latest_release = Signal(object)  # newest online release, or None when the check failed
+    latest_release = Signal(object)  # (newest tag, signed release or None), or None when the check failed
     update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
 
@@ -195,6 +195,7 @@ class MainWindow(QMainWindow):
         self.management_pending: dict[str, tuple[str, str, float]] = {}
         self.auto_connect_preferences: set[str] = set()
         self.latest_firmware = release_check.bundled_latest()
+        self.signed_release = None  # newest release whose signature verified; enables online firmware
         self._auto_connect_restore: set[str] = set()  # boards whose Auto-connect is off only during an update
         self.auto_management_tokens: dict[str, str] = {}
         self.auto_status: dict[str, str] = {}
@@ -915,7 +916,8 @@ class MainWindow(QMainWindow):
             return
         self._cancel_delivery("Firmware updater opened")
         try:
-            FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self).exec()
+            FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self,
+                           signed_release=self.signed_release).exec()
         finally:
             self._restore_auto_connect()
 
@@ -940,15 +942,22 @@ class MainWindow(QMainWindow):
 
     def start_release_check(self) -> None:
         """Look for a newer release in the background; silent when offline."""
-        threading.Thread(target=lambda: self.bridge.latest_release.emit(release_check.fetch_latest()),
-                         name="wits-release-check", daemon=True).start()
+        def check():
+            tag = release_check.fetch_latest()
+            self.bridge.latest_release.emit(None if tag is None else (tag, online_release.latest_signed()))
+        threading.Thread(target=check, name="wits-release-check", daemon=True).start()
 
-    def _latest_release_known(self, online) -> None:
-        if online is None:
+    def _latest_release_known(self, result) -> None:
+        if result is None:
             self._log("Release check skipped or offline; comparing against the firmware bundled with this app")
             return
+        online, signed = result
+        if signed is not None:
+            self.signed_release = signed
+            online = release_check.Latest(online.version, signed.critical_below)
         self.latest_firmware = release_check.newest(self.latest_firmware, online)
-        self._log(f"Newest published firmware: {online.version}")
+        self._log(f"Newest published firmware: {online.version}"
+                  + (" (signature verified)" if signed is not None else " (no verified signature; online download unavailable)"))
         for address, item in self.items.items():
             if item.text(5):
                 self._show_firmware(address, item.text(5))

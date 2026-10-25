@@ -95,7 +95,7 @@ class UpdateWithOtherBoardsTests(unittest.TestCase):
             self.window.items[address].setCheckState(4, Qt.CheckState.Checked)
         states = {}
 
-        def during_update(*args):
+        def during_update(*args, **kwargs):
             states.update({a: self.window.items[a].checkState(4) for a in "ABC"})
             return MagicMock()
 

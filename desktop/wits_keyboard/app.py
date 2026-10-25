@@ -46,6 +46,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, protocol
 from .controller import DiscoveredBoard, KeyboardController
+from .storage_stats import summarize as summarize_storage_io
 from .logging_config import LOG_PATH, safe_error
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,7 @@ class MainWindow(QMainWindow):
         self.items: dict[str, QTreeWidgetItem] = {}
         self.states: dict[str, dict[str, Any]] = {}
         self.board_information: dict[str, dict[str, Any]] = {}
+        self.storage_io_summary: dict[str, str] = {}
         self.passkey_dialogs: dict[str, QDialog] = {}
         self.management_pending: dict[str, tuple[str, str, float]] = {}
         self.auto_connect_preferences: set[str] = set()
@@ -827,6 +829,8 @@ class MainWindow(QMainWindow):
                 mode = "READ/WRITE" if info.get("writable") else "READ ONLY"
             capacity = f" · {info['bytes'] / (1024 * 1024):,.0f} MiB" if info.get("present") else ""
             message = f"{name} · FW {info.get('firmware', '?')} · {mode}{capacity}"
+            if self.storage_io_summary.get(address):
+                message += "\n" + self.storage_io_summary[address]
         self.storage_status_label.setText(message)
 
     def _storage_selected(self, allow_writes: bool | None) -> None:
@@ -1178,6 +1182,7 @@ class MainWindow(QMainWindow):
             self.states[address] = details
             if not details.get("connected"):
                 self.board_information.pop(address, None)
+                self.storage_io_summary.pop(address, None)
             if not (details.get("connected") and details.get("authenticated") and details.get("armed")) \
                     or details.get("typing"):
                 self._cancel_delivery_for([address], "Target disconnected, disarmed or became busy")
@@ -1186,6 +1191,10 @@ class MainWindow(QMainWindow):
             self._update_management_buttons()
             return
         if event == "board_info":
+            previous = self.board_information.get(address, {}).get("io")
+            summary = summarize_storage_io(previous, details.get("io"))
+            if summary:
+                self.storage_io_summary[address] = summary
             self.board_information[address] = details
             self._update_storage_controls()
             return

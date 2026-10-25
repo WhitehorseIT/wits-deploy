@@ -14,7 +14,9 @@ provide MicroSD-backed USB storage.
   character delays.
 - Physically arm devices before typing, with visible status and STOP controls.
 - Share deployment files over USB mass storage on supported Waveshare boards,
-  with read-only access by default and app-controlled write permission.
+  with read-only access by default and app-controlled write permission. The
+  boards use full-speed USB (about 0.5 MB/s today), so this suits scripts, answer
+  files, drivers and small installers rather than large OS images.
 - Update firmware over Bluetooth or USB using one release manifest that lists
   the images for each board model.
 - Install factory firmware on blank supported boards through the USB flasher.

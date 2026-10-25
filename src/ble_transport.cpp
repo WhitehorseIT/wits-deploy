@@ -671,17 +671,36 @@ class InfoCallbacks : public BLECharacteristicCallbacks {
   void onRead(BLECharacteristic *characteristic) override {
     auto s = Storage::snapshot();
     const auto &p = s.policy;
-    char value[256];
-    snprintf(value, sizeof(value),
+    // The desktop app rejects board information longer than 512 bytes. The
+    // largest possible output below is about 440 bytes.
+    char value[512];
+    int length = snprintf(value, sizeof(value),
         "{\"schema\":1,\"firmware\":\"%s\",\"board\":\"%s\","
         "\"supported\":%s,\"present\":%s,\"exported\":%s,\"writable\":%s,"
-        "\"ejected\":%s,\"error\":%s,\"bytes\":%llu}",
+        "\"ejected\":%s,\"error\":%s,\"bytes\":%llu",
         Firmware::VERSION,
         BoardProfile::ID,
         p.supported ? "true" : "false", p.present ? "true" : "false",
         p.exported ? "true" : "false", p.writable ? "true" : "false",
         p.ejected ? "true" : "false", p.error ? "true" : "false",
         static_cast<unsigned long long>(s.bytes));
+    if (p.supported && length > 0 && static_cast<size_t>(length) < sizeof(value)) {
+      const auto &io = s.io;
+      // Cumulative counters since boot (microsecond times); the app takes differences.
+      length += snprintf(value + length, sizeof(value) - length,
+          ",\"io\":{\"rb\":%llu,\"wb\":%llu,\"rc\":%lu,\"wc\":%lu,\"mx\":%lu,"
+          "\"rt\":%llu,\"wt\":%llu,\"ru\":%llu,\"wu\":%llu,\"sl\":%lu,\"er\":%lu}",
+          static_cast<unsigned long long>(io.readBytes), static_cast<unsigned long long>(io.writeBytes),
+          static_cast<unsigned long>(io.readCalls), static_cast<unsigned long>(io.writeCalls),
+          static_cast<unsigned long>(io.largestRequestBytes),
+          static_cast<unsigned long long>(io.readCallbackUs), static_cast<unsigned long long>(io.writeCallbackUs),
+          static_cast<unsigned long long>(io.readSdUs), static_cast<unsigned long long>(io.writeSdUs),
+          static_cast<unsigned long>(io.slowestRequestMs), static_cast<unsigned long>(io.errors));
+    }
+    if (length > 0 && static_cast<size_t>(length) + 1 < sizeof(value)) {
+      value[length] = '}';
+      value[length + 1] = '\0';
+    }
     characteristic->setValue(value);
   }
 };

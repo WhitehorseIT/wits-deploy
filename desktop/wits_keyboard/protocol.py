@@ -92,6 +92,10 @@ class BoardInfo:
     ejected: bool
     error: bool
     bytes: int
+    io: dict | None = None  # cumulative storage counters; newer firmware only
+
+
+IO_FIELDS = ("rb", "wb", "rc", "wc", "mx", "rt", "wt", "ru", "wu", "sl", "er")
 
 
 def parse_board_info(data: bytes | bytearray) -> BoardInfo:
@@ -114,7 +118,12 @@ def parse_board_info(data: bytes | bytearray) -> BoardInfo:
         raise ProtocolError("invalid storage capacity")
     if value["writable"] and (not value["exported"] or not value["present"] or value["error"]):
         raise ProtocolError("inconsistent writable storage state")
-    return BoardInfo(**{field: value[field] for field in BoardInfo.__dataclass_fields__})
+    io = value.get("io")
+    if io is not None:
+        if not isinstance(io, dict) or set(io) != set(IO_FIELDS) or \
+                any(type(io[key]) is not int or not 0 <= io[key] < (1 << 64) for key in IO_FIELDS):
+            raise ProtocolError("invalid storage I/O counters")
+    return BoardInfo(**{field: value[field] for field in BoardInfo.__dataclass_fields__ if field != "io"}, io=io)
 
 
 @dataclass(frozen=True, slots=True)

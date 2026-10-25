@@ -1,6 +1,10 @@
 # USB storage throughput: benchmark plan
 
-Status: plan only. No firmware changes have been made for it yet.
+Status: Phase 1 instrumentation is implemented (firmware counters, the optional `io` block in the board
+information, and a throughput line in the app's Storage status). Phase 2 experiments are not started.
+
+Decision (2026-10-24): keep USB storage for small files and tighten its speed; large images are out of
+scope for this hardware.
 
 ## Why
 
@@ -58,7 +62,7 @@ Run `scripts/storage-benchmark.sh` with the board's volume mounted read/write:
 Always use a file big enough to outlast host caching, and watch `Dirty` in `/proc/meminfo` reach zero
 before judging a number. Delete test files with Shift+Delete, not the file manager's Trash.
 
-## Phase 1: instrument the firmware
+## Phase 1: instrument the firmware (done)
 
 Add storage counters to the BLE board-info JSON the app already reads, so no UART is needed:
 
@@ -66,8 +70,13 @@ Add storage counters to the BLE board-info JSON the app already reads, so no UAR
 - microseconds spent inside the SD read and write calls versus total callback time
 - slowest single request, I/O error count
 
-Show them in the app's Storage status line. Counters reset on demand. Everything is read-only
-information. This is a small, low-risk change.
+Show them in the app's Storage status line. The counters only count up while the board runs; the app
+reports the difference between two refreshes ("Since last refresh: write 0.47 MB/s while busy, avg 4.0
+KiB per request, 90% in the SD card"). Everything is read-only information. The worst-case board
+information message is 437 bytes against the app's 512-byte limit, and boards on older firmware simply
+omit the block.
+
+How to use it: press **Storage status** before a copy, run the copy, then press it again.
 
 ## Phase 2: one experiment at a time
 

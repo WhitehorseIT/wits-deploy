@@ -11,6 +11,7 @@
 #include <driver/spi_master.h>
 #include <sdmmc_cmd.h>
 #include <tusb.h>
+#include <esp_timer.h>
 
 namespace Storage {
 namespace {
@@ -27,6 +28,7 @@ constexpr uint32_t EJECT_SETTLE_MS = 1500;
 DMA_ATTR uint8_t ioBuffer[IO_BUFFER_BYTES];
 uint32_t readRequests = 0, writeRequests = 0, readBytes = 0, writeBytes = 0;
 uint32_t ioErrors = 0, maxIoMs = 0, lastStatsAt = 0;
+IoStats totalStats;  // never reset; guarded by stateMux
 
 Policy readPolicy() {
   portENTER_CRITICAL(&stateMux);
@@ -39,6 +41,7 @@ void failIo() {
   portENTER_CRITICAL(&stateMux);
   policy.fail();
   ++ioErrors;
+  ++totalStats.errors;
   portEXIT_CRITICAL(&stateMux);
   msc->isWritable(false);
   msc->mediaPresent(false);
@@ -64,6 +67,8 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
   auto *bytes = static_cast<uint8_t *>(buffer);
   uint32_t done = 0;
   uint32_t started = millis();
+  int64_t startedUs = esp_timer_get_time();
+  uint64_t sdUs = 0;
   while (done < length) {
     Chunk chunk = planChunk(start + done, length - done);
     if (write && !readPolicy().canWrite()) {
@@ -72,8 +77,11 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
       return -1;
     }
     esp_err_t result = ESP_OK;
-    if (!write || chunk.partial)
+    if (!write || chunk.partial) {
+      int64_t before = esp_timer_get_time();
       result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
+      sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
+    }
     if (result == ESP_OK) {
       if (write) {
         // Recheck media state after a partial-sector read.
@@ -83,7 +91,9 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
           return -1;
         }
         memcpy(ioBuffer + chunk.offset, bytes + done, chunk.bytes);
+        int64_t before = esp_timer_get_time();
         result = sdmmc_write_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
+        sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
       } else memcpy(bytes + done, ioBuffer + chunk.offset, chunk.bytes);
     }
     if (result != ESP_OK) {
@@ -98,9 +108,19 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
     done += chunk.bytes;
   }
   uint32_t elapsed = millis() - started;
+  uint64_t callbackUs = static_cast<uint64_t>(esp_timer_get_time() - startedUs);
   portENTER_CRITICAL(&stateMux);
-  if (write) { ++writeRequests; writeBytes += length; }
-  else { ++readRequests; readBytes += length; }
+  if (write) {
+    ++writeRequests; writeBytes += length;
+    ++totalStats.writeCalls; totalStats.writeBytes += length;
+    totalStats.writeCallbackUs += callbackUs; totalStats.writeSdUs += sdUs;
+  } else {
+    ++readRequests; readBytes += length;
+    ++totalStats.readCalls; totalStats.readBytes += length;
+    totalStats.readCallbackUs += callbackUs; totalStats.readSdUs += sdUs;
+  }
+  if (length > totalStats.largestRequestBytes) totalStats.largestRequestBytes = length;
+  if (elapsed > totalStats.slowestRequestMs) totalStats.slowestRequestMs = elapsed;
   if (elapsed > maxIoMs) maxIoMs = elapsed;
   portEXIT_CRITICAL(&stateMux);
   xSemaphoreGive(ioMutex);
@@ -260,7 +280,7 @@ bool prepareRestart() {
 
 Snapshot snapshot() {
   portENTER_CRITICAL(&stateMux);
-  Snapshot result = {policy, capacityBytes};
+  Snapshot result = {policy, capacityBytes, totalStats};
   portEXIT_CRITICAL(&stateMux);
   return result;
 }

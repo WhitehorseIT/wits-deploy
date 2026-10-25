@@ -143,7 +143,7 @@ class UsbFlashDialog(QDialog):
         self.bar.setRange(0, 100)
         success = code == 0 and _status == QProcess.ExitStatus.NormalExit
         self.bar.setValue(100 if success else 0)
-        self.description.setText("Firmware verified. Press RESET, then enter HID." if success else
+        self.description.setText("Firmware verified. Press RESET; the board starts in HID mode." if success else
                                  "USB flash failed. See the output below; keep the board connected for recovery.")
         for widget in (self.model, self.port, self.refresh, self.mode, self.choose, self.flash, self.close_button):
             widget.setEnabled(True)

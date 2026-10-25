@@ -13,7 +13,7 @@ from wits_keyboard.usb_flash import SerialFlasher
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", help="bootloader port, e.g. /dev/ttyACM0 or COM5")
-    parser.add_argument("--version", default="0.2.0-dev16")
+    parser.add_argument("--version", default="0.2.0-dev17")
     parser.add_argument("--update", action="store_true",
                         help="preserve settings by updating the inactive slot of an existing WITS install")
     args = parser.parse_args()

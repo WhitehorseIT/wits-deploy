@@ -29,7 +29,7 @@ provide MicroSD-backed USB storage.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | Initial pairing and operation confirmed; storage/recovery tests pending |
 
-Current firmware/app source: **0.2.0-dev16** (test build); last fully verified release: **0.2.0-dev13**. Bluetooth OTA has been tested on
+Current firmware/app source: **0.2.0-dev17** (test build); last fully verified release: **0.2.0-dev13**. Bluetooth OTA has been tested on
 the T-QT Pro and 7-inch boards. Storage/OTA on the 1.47-inch board, USB slot-aware
 updates and interrupted-update recovery still need hardware validation.
 
@@ -74,7 +74,7 @@ bash START-LINUX.sh
 
 On Windows, run `desktop/SETUP-WINDOWS.cmd`, then `desktop/START-WINDOWS.cmd`.
 
-Put the board in HID mode and pair using the PIN on its screen. On Windows,
+The board starts in HID mode; pair using the PIN on its screen. On Windows,
 complete the initial pairing in Bluetooth Settings first. Connect in the app,
 select the intended target, and physically arm the board when ready to type.
 See the [desktop guide](desktop/README.md) for pairing and controls.
@@ -85,6 +85,20 @@ Windows/Linux standalone build scripts and a GitHub Actions workflow are
 prepared, including all three models' firmware. The Linux native package has
 passed local startup checks; Windows builds remain pending. See
 [shortcuts and native packaging](docs/DESKTOP-PACKAGING.md).
+
+## Starting modes
+
+From 0.2.0-dev17 every board starts in **HID mode** (keyboard, Bluetooth control and, on
+supported boards, USB storage), disarmed. **Programming mode** (USB serial, for flashing) is
+entered on request:
+
+- **Touch boards (Waveshare 7-inch and 1.47-inch):** hold **PROG** on the HID screen for 2 seconds.
+- **T-QT Pro:** hold **both buttons** for 3 seconds.
+- Any crash or hang also starts programming mode, so a firmware fault cannot trap the board as a
+  keyboard in a boot loop. A blank or unresponsive board can always be recovered with the USB
+  flasher by holding BOOT while pressing RESET.
+
+From programming mode, choose **HID** (touch) or hold the right button (T-QT Pro) to go back.
 
 ## Firmware updates
 

@@ -49,7 +49,8 @@ verifies the inactive app slot, then writes/verifies only the other OTA metadata
 sector. The previous selected app and NVS bonds remain intact. Unconfirmed
 boots or corrupt/unknown metadata refuse this path: boot normally first, or use
 explicit factory recovery as appropriate. Keep power connected and press RESET
-after verified success. Expect PROGRAM and the new version, then enter HID.
+after verified success. From 0.2.0-dev17 the board then starts in HID mode with the new
+version (older firmware starts in PROGRAM; enter HID from there).
 
 Do not manually assume app0 at `0x10000` is the selected slot after OTA.
 The older app-only bootstrap scripts are for known app0 layouts. Use the app's
@@ -63,14 +64,15 @@ MITM-authenticated, encrypted BLE connection. The PC keeps its normal network
 connection; no Wi-Fi hotspot is involved. The browser controller has no OTA UI.
 
 1. Finish writes and safely eject writable storage on its target PC.
-2. Enter HID, connect in the desktop app and leave the board DISARMED.
+2. The board starts in HID mode (older firmware: enter HID first). Connect in the desktop
+   app and leave the board DISARMED.
 3. Highlight exactly one board, choose OTA Update, select the common JSON and
    start the update. Factory images cannot be sent over Bluetooth.
 4. Keep power connected. The app shows acknowledged progress, KiB/s and ETA,
    followed by verification. The 7-inch RGB display pauses during flash writes;
    the SPI displays retain the update message.
-5. After verified success, the board reboots into PROGRAM. Check its version,
-   enter HID and reconnect.
+5. After verified success, the board reboots into HID mode (firmware older than
+   0.2.0-dev17 reboots into PROGRAM; enter HID there). Check its version and reconnect.
 
 Linux may cache the old GATT layout when moving from pre-OTA firmware. If OTA
 services are missing despite a correct version, hold PAIR to display a PIN and

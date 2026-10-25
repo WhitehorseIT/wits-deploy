@@ -116,7 +116,7 @@ class SerialFlasher:
                 print("Image verified. Selecting new firmware using the other OTA metadata sector.", flush=True)
                 self.command("write-flash", hex(metadata_offset), str(commit))
                 self.command("verify-flash", hex(metadata_offset), str(commit))
-            print(f"SUCCESS: {board} {image.version} verified. Press RESET, then enter HID.", flush=True)
+            print(f"SUCCESS: {board} {image.version} verified. Press RESET; the board starts in HID mode.", flush=True)
 
 
 def main():

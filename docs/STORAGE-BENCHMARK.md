@@ -140,6 +140,7 @@ Writes cannot overlap the same way without a write-behind buffer, because TinyUS
 next 4 KiB until the write callback returns. That is the deliberate no-write-cache rule; changing it is
 the user's decision. The product's main flow is reading installers from the board on target machines, and
 the card can be filled with an ordinary card reader at full speed, so read speed matters most.
+| dev17 | B3 overlap: a background task reads the next 4 KiB from the card while USB sends the current piece (replaces the 32 KiB window; same lock, a generation counter drops it on any write, eject, mode change, error or restart; compile-time tests) | built, checksummed, not yet measured. Expected: read toward 0.9 MB/s; write still about 0.42 MB/s |
 
 ## Acceptance
 

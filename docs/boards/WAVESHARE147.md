@@ -53,8 +53,8 @@ From the repository root on Linux, with the complete dev12 release available:
 Replace the port if necessary. The helper verifies file hashes, requires an
 ESP32-S3 and exactly 16 MB flash, installs the complete factory image at zero,
 and verifies the written contents. This clears existing board settings.
-Press RESET after success. Expect a blue **PROGRAM** screen and version
-**0.2.0-dev13**. This is the first physical test, so begin without a MicroSD card.
+Press RESET after success. From **0.2.0-dev17** the board starts in HID mode; older
+firmware shows a blue **PROGRAM** screen. Expect the new version number. This is the first physical test, so begin without a MicroSD card.
 
 Alternatively, use desktop app dev10 **USB Flash/Update…**, select
 **Waveshare 1.47-inch touch**, the board's serial port and the common release

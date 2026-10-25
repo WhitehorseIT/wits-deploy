@@ -3,11 +3,13 @@
 // personality is constructed only after setup() has read bootMode. The
 // framework's automatic USB startup must stay disabled in platformio.ini.
 //
-// A one-shot request lives in uninitialized RTC memory so it survives the
-// deliberate esp_restart(). It is accepted only after a software reset and
-// only with the expected magic value, then immediately cleared. Every other
-// reset path returns to programming mode. Switching modes requires a reboot
-// because USB descriptors cannot be changed after USB.begin().
+// The board starts as a keyboard (HID + storage) by default. A one-shot request for the
+// programming personality lives in uninitialized RTC memory so it survives the deliberate
+// esp_restart(). It is accepted only after a software reset and only with the expected
+// marker, then immediately cleared. A crash or hang also comes up in programming mode
+// (see boot_mode.h), so a firmware fault can never trap the board as a keyboard in a boot
+// loop. Switching modes requires a reboot because USB descriptors cannot be changed after
+// USB.begin().
 //
 // Dev-only: typing "hid" over serial triggers the switch. HID mode has no
 // CDC interface by design; unplug/replug returns to the safe programming
@@ -28,12 +30,14 @@
 #include "usb_storage.h"
 #include "startup_trace.h"
 #include "firmware_update.h"
+#include "boot_mode.h"
 
 constexpr int LEFT_BUTTON_PIN = 0;  // IO00 / BOOT button
 constexpr int RIGHT_BUTTON_PIN = 47;
 constexpr uint32_t LONG_PRESS_MS = 2000;
 constexpr uint32_t BOND_RESET_PRESS_MS = 5000;
-constexpr uint32_t HID_BOOT_MAGIC = 0x57495453; // ASCII "WITS"
+constexpr uint32_t PROGRAM_BOOT_MAGIC = 0x57495450; // ASCII "WITP": next boot is programming mode
+constexpr uint32_t PROGRAM_CHORD_MS = 3000;           // hold both buttons (T-QT Pro) for programming mode
 
 RTC_NOINIT_ATTR uint32_t nextBootMagic;
 
@@ -72,10 +76,21 @@ void logLine(const char *message) {
 }
 
 void setup() {
-  // RTC_NOINIT memory is undefined after power loss, so require both an exact
-  // magic value and the reset reason produced by switchToHidMode(). Clear the
-  // request before starting USB so any later reset fails safe.
-  hidMode = esp_reset_reason() == ESP_RST_SW && nextBootMagic == HID_BOOT_MAGIC;
+  // RTC_NOINIT memory is undefined after power loss, so a request for programming mode
+  // needs both an exact marker and a software reset. Clear it before starting USB so any
+  // later reset takes the default path.
+  BootMode::Reset resetKind = BootMode::Reset::Other;
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: resetKind = BootMode::Reset::PowerOn; break;
+    case ESP_RST_EXT: resetKind = BootMode::Reset::External; break;
+    case ESP_RST_SW: resetKind = BootMode::Reset::Software; break;
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT: resetKind = BootMode::Reset::Fault; break;
+    default: break;
+  }
+  hidMode = !BootMode::programMode(resetKind, nextBootMagic, PROGRAM_BOOT_MAGIC);
   nextBootMagic = 0;
 #if WITS_HAS_STORAGE
   esp_rom_printf("[WITS] firmware=%s reset_reason=%u mode=%s\n", Firmware::VERSION,
@@ -142,7 +157,7 @@ void switchToHidMode() {
     StartupTrace::mark("HID switch canceled: display cleanup failed");
     return;
   }
-  nextBootMagic = HID_BOOT_MAGIC;
+  nextBootMagic = 0;  // HID is the default boot
   StartupTrace::mark("Entering esp_restart for HID mode");
   esp_restart();
 }
@@ -177,7 +192,7 @@ void switchToProgrammingMode() {
   emergencyStop();
   StartupTrace::mark("Programming mode requested");
   if (!StatusDisplay::prepareRestart()) return;
-  nextBootMagic = 0;
+  nextBootMagic = PROGRAM_BOOT_MAGIC;
   StartupTrace::mark("Entering esp_restart for programming mode");
   esp_restart();
 }
@@ -341,6 +356,32 @@ void updateProgrammingButtons() {
   rightButton.wasPressed = rightPressed;
 }
 
+#if !WITS_HAS_TOUCHSCREEN
+// T-QT Pro has no touch menu, so holding both buttons for 3 seconds enters programming mode.
+// While both are down, the single-button actions (pairing, arming, clearing bonds) are
+// suppressed, including when each button is released.
+void updateProgramChord() {
+  static bool active = false;
+  static uint32_t startedAt = 0;
+  bool both = digitalRead(LEFT_BUTTON_PIN) == LOW && digitalRead(RIGHT_BUTTON_PIN) == LOW;
+  if (!both) {
+    active = false;
+    return;
+  }
+  if (!active) {
+    active = true;
+    startedAt = millis();
+    emergencyStop();
+  }
+  leftButton.longPressHandled = true;
+  rightButton.longPressHandled = true;
+  if (millis() - startedAt >= PROGRAM_CHORD_MS) {
+    active = false;
+    switchToProgrammingMode();
+  }
+}
+#endif
+
 void loop() {
   if (hidMode) {
     FirmwareUpdate::loop();
@@ -387,6 +428,7 @@ void loop() {
 #if !WITS_HAS_TOUCHSCREEN
     updateLeftButton();
     updateRightButton();
+    updateProgramChord();
 #endif
     updateKeyboardOutput();
     updateKeyAction();

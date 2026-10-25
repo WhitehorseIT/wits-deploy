@@ -3,4 +3,6 @@
 The matching private key lives only in the project's release secret. Releases can add
 further keys through a signed manifest, so this list rarely changes.
 """
-RELEASE_PUBLIC_KEYS: tuple[str, ...] = ()
+RELEASE_PUBLIC_KEYS: tuple[str, ...] = (
+    "EGdSeVgiSbl3lbTDmovuS2a9KP+zoiT2rFE9/5+FWcM=",
+)

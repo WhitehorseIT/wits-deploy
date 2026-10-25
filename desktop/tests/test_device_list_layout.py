@@ -14,7 +14,7 @@ try:
 except ImportError:
     AVAILABLE = False
 
-TARGET, DEVICE, STATE, RESULT, AUTO = range(5)
+TARGET, DEVICE, STATE, RESULT, AUTO, FIRMWARE = range(6)
 
 
 @unittest.skipUnless(AVAILABLE, "Qt not installed")
@@ -51,6 +51,15 @@ class DeviceListLayoutTests(unittest.TestCase):
         self.app.processEvents()
         edge = tree.columnViewportPosition(AUTO) + tree.columnWidth(AUTO)
         self.assertLessEqual(edge, tree.viewport().width())
+
+    def test_firmware_column_sits_between_state_and_result_and_shows_the_version(self):
+        tree = self.window.device_tree
+        header = tree.header()
+        self.assertEqual(header.visualIndex(FIRMWARE), header.visualIndex(STATE) + 1)
+        self.assertEqual(header.visualIndex(RESULT), header.visualIndex(FIRMWARE) + 1)
+        self.window._add_or_update_device(DiscoveredBoard("A", "Board A"))
+        self.window._board_event("A", "board_info", {"firmware": "0.2.0-dev18", "board": "tqtpro"})
+        self.assertEqual(self.window.items["A"].text(FIRMWARE), "0.2.0-dev18")
 
     def test_boards_are_on_top_at_full_width_with_every_control_visible(self):
         window = self.window

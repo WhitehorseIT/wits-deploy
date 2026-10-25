@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from PySide6.QtCore import QObject, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -46,6 +46,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, protocol
 from .controller import DiscoveredBoard, KeyboardController
+from . import release_check
 from .storage_stats import summarize as summarize_storage_io
 from .logging_config import LOG_PATH, safe_error
 
@@ -86,6 +87,7 @@ class UiBridge(QObject):
     passkey_requested = Signal(object)
     passkey_finished = Signal(str)
     management_finished = Signal(str, str)
+    latest_release = Signal(object)  # newest online release, or None when the check failed
     update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
 
@@ -192,6 +194,8 @@ class MainWindow(QMainWindow):
         self.passkey_dialogs: dict[str, QDialog] = {}
         self.management_pending: dict[str, tuple[str, str, float]] = {}
         self.auto_connect_preferences: set[str] = set()
+        self.latest_firmware = release_check.bundled_latest()
+        self._auto_connect_restore: set[str] = set()  # boards whose Auto-connect is off only during an update
         self.auto_management_tokens: dict[str, str] = {}
         self.auto_status: dict[str, str] = {}
         self.pending_delivery: PendingDelivery | None = None
@@ -204,6 +208,7 @@ class MainWindow(QMainWindow):
         self.bridge.board_event.connect(self._board_event)
         self.bridge.operation_error.connect(self._operation_error)
         self.bridge.update_ready.connect(self._open_firmware_dialog)
+        self.bridge.latest_release.connect(self._latest_release_known)
         self.bridge.passkey_requested.connect(self._show_passkey_prompt)
         self.bridge.passkey_finished.connect(self._dismiss_passkey_prompt)
         self.bridge.management_finished.connect(self._management_finished)
@@ -371,7 +376,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
 
         self.device_tree = QTreeWidget()
-        self.device_tree.setHeaderLabels(("Target", "Device", "Board state", "Last result", "Auto-connect"))
+        self.device_tree.setHeaderLabels(("Target", "Device", "Board state", "Last result", "Auto-connect", "Firmware"))
         self.device_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.device_tree.setRootIsDecorated(False)
         self.device_tree.setAlternatingRowColors(True)
@@ -382,6 +387,8 @@ class MainWindow(QMainWindow):
         # visible column (Last result) absorb or clip the leftover space.
         header = self.device_tree.header()
         header.moveSection(4, 1)
+        header.moveSection(5, 4)  # Firmware sits between Board state and Last result
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(True)
@@ -886,6 +893,12 @@ class MainWindow(QMainWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 return
             self._cancel_delivery_for(others, "Disconnected for a firmware update")
+            # Disconnecting alone is not enough: Auto-connect would reconnect them at once.
+            # Untick those boxes now and tick them again when the updater closes.
+            for other in others:
+                if self.items[other].checkState(4) == Qt.CheckState.Checked:
+                    self._auto_connect_restore.add(other)
+                    self.items[other].setCheckState(4, Qt.CheckState.Unchecked)
             self.runner.submit(
                 self.controller.disconnect_many(others),
                 on_finished=lambda: self.bridge.update_ready.emit(address),  # runs off the interface thread
@@ -900,7 +913,51 @@ class MainWindow(QMainWindow):
         if address not in self.items:
             return
         self._cancel_delivery("Firmware updater opened")
-        FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self).exec()
+        try:
+            FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self).exec()
+        finally:
+            self._restore_auto_connect()
+
+    FIRMWARE_COLORS = {release_check.CURRENT: "#1e8e3e", release_check.UPDATE: "#b58900",
+                       release_check.CRITICAL: "#d32f2f"}
+    FIRMWARE_MEANING = {release_check.CURRENT: "up to date", release_check.UPDATE: "an update is available",
+                        release_check.CRITICAL: "critical update available"}
+
+    def _show_firmware(self, address: str, version: str) -> None:
+        item = self.items[address]
+        item.setText(5, version)
+        status = release_check.classify(version, self.latest_firmware)
+        font = item.font(5)
+        font.setBold(status is not None)
+        item.setFont(5, font)
+        if status is None:
+            item.setData(5, Qt.ItemDataRole.ForegroundRole, None)
+            item.setToolTip(5, "")
+            return
+        item.setForeground(5, QColor(self.FIRMWARE_COLORS[status]))
+        item.setToolTip(5, f"{self.FIRMWARE_MEANING[status].capitalize()} (newest known: {self.latest_firmware.version})")
+
+    def start_release_check(self) -> None:
+        """Look for a newer release in the background; silent when offline."""
+        threading.Thread(target=lambda: self.bridge.latest_release.emit(release_check.fetch_latest()),
+                         name="wits-release-check", daemon=True).start()
+
+    def _latest_release_known(self, online) -> None:
+        if online is None:
+            self._log("Release check skipped or offline; comparing against the firmware bundled with this app")
+            return
+        self.latest_firmware = release_check.newest(self.latest_firmware, online)
+        self._log(f"Newest published firmware: {online.version}")
+        for address, item in self.items.items():
+            if item.text(5):
+                self._show_firmware(address, item.text(5))
+
+    def _restore_auto_connect(self) -> None:
+        restore, self._auto_connect_restore = self._auto_connect_restore, set()
+        for address in restore:
+            item = self.items.get(address)
+            if item is not None:
+                item.setCheckState(4, Qt.CheckState.Checked)
 
     def _repair_selected(self) -> None:
         addresses = self._require_management_selection()
@@ -1228,6 +1285,8 @@ class MainWindow(QMainWindow):
             if summary:
                 self.storage_io_summary[address] = summary
             self.board_information[address] = details
+            if address in self.items:
+                self._show_firmware(address, str(details.get("firmware") or ""))
             self._update_storage_controls()
             return
         if event == "ping":
@@ -1282,4 +1341,5 @@ def main() -> int:
     app.setOrganizationName("Whitehorse IT Solutions")
     window = MainWindow()
     window.show()
+    window.start_release_check()
     return app.exec()

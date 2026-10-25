@@ -88,6 +88,27 @@ class UpdateWithOtherBoardsTests(unittest.TestCase):
         self.dialog.assert_called_once()
         self.assertEqual(self.dialog.call_args.args[2], "A")
 
+    def test_other_boards_lose_auto_connect_during_the_update_and_get_it_back(self):
+        from PySide6.QtCore import Qt
+        self.connect("A", "B", "C")
+        for address in ("A", "B"):
+            self.window.items[address].setCheckState(4, Qt.CheckState.Checked)
+        states = {}
+
+        def during_update(*args):
+            states.update({a: self.window.items[a].checkState(4) for a in "ABC"})
+            return MagicMock()
+
+        self.dialog.side_effect = during_update
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+            self.window._update_firmware()
+        self.assertEqual(states["A"], Qt.CheckState.Checked)      # the updating board keeps its setting
+        self.assertEqual(states["B"], Qt.CheckState.Unchecked)    # was ticked, off during the update
+        self.assertEqual(states["C"], Qt.CheckState.Unchecked)    # never ticked, stays off
+        self.assertEqual(self.window.items["B"].checkState(4), Qt.CheckState.Checked)
+        self.assertEqual(self.window.items["C"].checkState(4), Qt.CheckState.Unchecked)
+        self.assertIn("B", self.window.auto_connect_preferences)
+
     def test_a_disconnected_saved_board_does_not_count_as_connected(self):
         self.connect("A")
         self.window._board_event("B", "state", {"connected": False, "authenticated": False, "armed": False, "typing": False})

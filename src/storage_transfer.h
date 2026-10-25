@@ -25,29 +25,46 @@ constexpr Chunk planChunk(uint64_t position, uint32_t remaining) {
   if (sectors > IO_BUFFER_BYTES / SECTOR_BYTES) sectors = IO_BUFFER_BYTES / SECTOR_BYTES;
   return {static_cast<uint32_t>(position / SECTOR_BYTES), 0, sectors * SECTOR_BYTES, sectors, false};
 }
-// Sequential-read window. When a read starts exactly where the previous one ended, the
-// firmware reads READ_AHEAD_SECTORS from the card in one command and serves the next
-// USB callbacks from RAM. The window is dropped on every write, eject, mode change,
-// error and restart, so it can never return stale data. Used only while holding the
-// storage I/O mutex.
-constexpr uint32_t READ_AHEAD_SECTORS = 64;  // 32 KiB
-struct ReadAhead {
-  uint32_t start = 0;
-  uint32_t count = 0;                 // 0 means the window holds nothing
-  uint64_t lastEnd = UINT64_MAX;      // byte position after the previous read; never a valid position
-  constexpr void drop() { count = 0; lastEnd = UINT64_MAX; }
-  constexpr bool covers(uint32_t sector, uint32_t sectors) const {
-    return count != 0 && sector >= start && uint64_t(sector) + sectors <= uint64_t(start) + count;
-  }
+// Read pipeline. While the USB layer sends one 4 KiB piece to the host, a background task
+// reads the next piece from the card, so the card read and the USB transfer overlap.
+// All fields are touched only while holding the storage I/O mutex. A "generation"
+// counter is bumped by every drop(), so data read before a write, eject, mode change,
+// error or restart can never be served afterwards.
+constexpr uint32_t PREFETCH_SECTORS = IO_BUFFER_BYTES / SECTOR_BYTES;  // 8 sectors, 4 KiB
+struct Prefetch {
+  uint32_t generation = 0;
+  uint64_t lastEnd = UINT64_MAX;       // byte position after the previous read; never a valid position
+  // Data waiting in the prefetch buffer.
+  bool ready = false;
+  uint32_t readySector = 0, readySectors = 0, readyGeneration = 0;
+  // Work requested of the background task.
+  bool requested = false;
+  uint32_t requestSector = 0, requestSectors = 0, requestGeneration = 0;
+
+  constexpr void drop() { ++generation; lastEnd = UINT64_MAX; ready = false; requested = false; }
   constexpr bool sequential(uint64_t position) const { return lastEnd == position; }
-  // Sectors to fetch for a window beginning at `sector`, or 0 if even one request would not fit.
-  constexpr uint32_t window(uint32_t sector, uint32_t needed, uint64_t capacitySectors) const {
-    if (sector >= capacitySectors) return 0;
-    uint64_t left = capacitySectors - sector;
-    uint32_t n = left < READ_AHEAD_SECTORS ? static_cast<uint32_t>(left) : READ_AHEAD_SECTORS;
-    return n >= needed ? n : 0;
+  // True if the prefetch buffer holds exactly what this chunk needs and is still current.
+  constexpr bool hit(uint32_t sector, uint32_t sectors) const {
+    return ready && readyGeneration == generation && sector == readySector && sectors <= readySectors;
   }
-  constexpr void filled(uint32_t sector, uint32_t sectors) { start = sector; count = sectors; }
-  constexpr void served(uint64_t position, uint32_t bytes) { lastEnd = position + bytes; }
+  // Ask for the PREFETCH_SECTORS after a read, if they exist on the card.
+  constexpr bool request(uint32_t nextSector, uint64_t capacitySectors) {
+    if (uint64_t(nextSector) + PREFETCH_SECTORS > capacitySectors) return false;
+    requested = true;
+    requestSector = nextSector;
+    requestSectors = PREFETCH_SECTORS;
+    requestGeneration = generation;
+    return true;
+  }
+  constexpr bool shouldRun() const { return requested && requestGeneration == generation; }
+  constexpr void completed() {
+    ready = true;
+    readySector = requestSector;
+    readySectors = requestSectors;
+    readyGeneration = requestGeneration;
+    requested = false;
+  }
+  // A read finished at byte position `position + bytes`; whatever was prefetched is used up.
+  constexpr void consumed(uint64_t position, uint32_t bytes) { ready = false; lastEnd = position + bytes; }
 };
 } // namespace Storage

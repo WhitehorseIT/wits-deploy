@@ -36,9 +36,12 @@ uint32_t readRequests = 0, writeRequests = 0, readBytes = 0, writeBytes = 0;
 uint32_t ioErrors = 0, maxIoMs = 0, lastStatsAt = 0;
 IoStats totalStats;  // never reset; guarded by stateMux
 
-// Sequential-read window: see ReadAhead in storage_transfer.h. Touched only with ioMutex held.
-DMA_ATTR uint8_t readAheadBuffer[READ_AHEAD_SECTORS * SECTOR_BYTES];
-ReadAhead readAhead;
+// Read pipeline: see Prefetch in storage_transfer.h. The state and the buffer are touched
+// only with ioMutex held. The background task reads the next 4 KiB from the card while
+// the USB layer is still sending the current piece to the host.
+DMA_ATTR uint8_t prefetchBuffer[IO_BUFFER_BYTES];
+Prefetch prefetch;
+TaskHandle_t prefetchTask = nullptr;
 
 Policy readPolicy() {
   portENTER_CRITICAL(&stateMux);
@@ -50,7 +53,7 @@ Policy readPolicy() {
 void failIo() {
   portENTER_CRITICAL(&stateMux);
   policy.fail();
-  readAhead.drop();
+  prefetch.drop();
   reinsertPending = false;
   ++ioErrors;
   ++totalStats.errors;
@@ -58,6 +61,23 @@ void failIo() {
   msc->isWritable(false);
   msc->mediaPresent(false);
   tud_msc_set_sense(0, SCSI_SENSE_MEDIUM_ERROR, 0x11, 0x00);
+}
+
+// Background reader. It waits for a request, takes the same lock as the USB callbacks, checks
+// the request is still current (nothing dropped it since), and reads the piece into the
+// prefetch buffer. If anything fails it simply drops the pipeline; the next USB read then does
+// an ordinary read and reports any real error itself.
+void prefetchLoop(void *) {
+  for (;;) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if (!ioMutex || xSemaphoreTake(ioMutex, pdMS_TO_TICKS(50)) != pdTRUE) continue;  // a later read will ask again
+    if (prefetch.shouldRun() && readPolicy().canRead()) {
+      esp_err_t result = sdmmc_read_sectors(&card, prefetchBuffer, prefetch.requestSector, prefetch.requestSectors);
+      if (result == ESP_OK) prefetch.completed();
+      else prefetch.drop();
+    }
+    xSemaphoreGive(ioMutex);
+  }
 }
 
 int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
@@ -77,7 +97,7 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
     return -1;
   }
   auto *bytes = static_cast<uint8_t *>(buffer);
-  if (write) readAhead.drop();  // the card is about to change
+  if (write) prefetch.drop();  // the card is about to change
   uint32_t done = 0;
   uint32_t started = millis();
   int64_t startedUs = esp_timer_get_time();
@@ -110,32 +130,23 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
       }
     } else {
       uint64_t position = start + done;
-      bool covered = readAhead.covers(chunk.sector, chunk.sectors);
-      if (!covered && readAhead.sequential(position)) {
-        uint32_t sectors = readAhead.window(chunk.sector, chunk.sectors, capacityBytes / SECTOR_BYTES);
-        if (sectors) {
-          int64_t before = esp_timer_get_time();
-          result = sdmmc_read_sectors(&card, readAheadBuffer, chunk.sector, sectors);
-          sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
-          if (result == ESP_OK) {
-            readAhead.filled(chunk.sector, sectors);
-            covered = true;
-          } else {
-            readAhead.drop();
-          }
-        }
+      bool sequential = prefetch.sequential(position);
+      if (prefetch.hit(chunk.sector, chunk.sectors)) {
+        // The background task already read this piece while the previous one was on the wire.
+        memcpy(bytes + done, prefetchBuffer + chunk.offset, chunk.bytes);
+      } else {
+        int64_t before = esp_timer_get_time();
+        result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
+        sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
+        if (result == ESP_OK) memcpy(bytes + done, ioBuffer + chunk.offset, chunk.bytes);
       }
       if (result == ESP_OK) {
-        if (covered) {
-          memcpy(bytes + done,
-                 readAheadBuffer + (chunk.sector - readAhead.start) * SECTOR_BYTES + chunk.offset, chunk.bytes);
-        } else {
-          int64_t before = esp_timer_get_time();
-          result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
-          sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
-          if (result == ESP_OK) memcpy(bytes + done, ioBuffer + chunk.offset, chunk.bytes);
-        }
-        if (result == ESP_OK) readAhead.served(position, chunk.bytes);
+        // Only a read that continues the previous one earns a prefetch; random reads never do.
+        bool wasSequential = sequential;
+        prefetch.consumed(position, chunk.bytes);
+        if (wasSequential && (position + chunk.bytes) % SECTOR_BYTES == 0 && prefetchTask &&
+            prefetch.request(chunk.sector + chunk.sectors, capacityBytes / SECTOR_BYTES))
+          xTaskNotifyGive(prefetchTask);
       }
     }
     if (result != ESP_OK) {
@@ -201,7 +212,7 @@ bool startStop(uint8_t power, bool start, bool loadEject) {
     // Host's explicit eject. Never grant writes from a host load command.
     portENTER_CRITICAL(&stateMux);
     policy.eject();
-    readAhead.drop();
+    prefetch.drop();
     reinsertPending = false;
     lastEjectAt = millis();
     portEXIT_CRITICAL(&stateMux);
@@ -282,6 +293,8 @@ void begin() {
   if (!registered) policy.fail();
   msc->isWritable(false);
   msc->mediaPresent(ok && registered);
+  // Below the USB task so it never delays a transfer, above the Arduino loop task.
+  if (ok) xTaskCreate(prefetchLoop, "sdprefetch", 6144, nullptr, 2, &prefetchTask);
 }
 
 Result configure(bool allowWrites) {
@@ -296,7 +309,7 @@ Result configure(bool allowWrites) {
   }
   bool liveExport = policy.exported;
   Result result = policy.configure(allowWrites);
-  readAhead.drop();  // any mode change starts from a clean window
+  prefetch.drop();  // any mode change starts from a clean window
   bool upgradeInPlace = result == Result::Ok && liveExport;
   if (upgradeInPlace) {
     reinsertPending = true;
@@ -328,7 +341,7 @@ bool prepareRestart() {
   }
   stopping = true;
   policy.exported = false;
-  readAhead.drop();
+  prefetch.drop();
   reinsertPending = false;
   portEXIT_CRITICAL(&stateMux);
   msc->mediaPresent(false);

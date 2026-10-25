@@ -62,6 +62,35 @@ Run `scripts/storage-benchmark.sh` with the board's volume mounted read/write:
 Always use a file big enough to outlast host caching, and watch `Dirty` in `/proc/meminfo` reach zero
 before judging a number. Delete test files with Shift+Delete, not the file manager's Trash.
 
+## Baseline, firmware 0.2.0-dev15, Waveshare 1.47, Linux host (2026-10-25)
+
+`scripts/storage-benchmark.sh`, 32 MiB random file, exFAT card, USB 12 Mbps:
+
+| Measurement | Result |
+| --- | --- |
+| Write, flushed to the card | 0.42 MB/s (32 MiB in 75.3 s) |
+| Read, cold cache | 0.51 MB/s (32 MiB in 62.9 s) |
+| Readback | matches the source |
+| Partition start sector | 2048 (1 MiB aligned) |
+
+What the numbers show:
+
+- **Alignment is fine.** A 2048-sector start is 1 MiB aligned, so hypothesis 3's partition-misalignment
+  case is unlikely.
+- **The host sends large requests.** Linux issued writes averaging 99.6 KiB and reads averaging 75.6 KiB
+  (block layer limit 120 KiB, 2 requests queued).
+- **The firmware handles them 4 KiB at a time.** The largest callback the board ever saw was 4096
+  bytes, so each host request becomes about 25 separate callbacks, each with its own SD command.
+  (This refutes the 512-byte-callback worry from hypothesis 1: callbacks are 4 KiB.)
+- **Per 4 KiB callback:** write about 9.2 ms and read about 7.7 ms (8192 callbacks in the run).
+  On reads, the board counters showed about 3.4 ms inside the SD card per callback (99% of callback
+  time) and a 4 KiB USB transfer takes about 3.4 ms at full speed. The two happen one after the other,
+  not overlapped, which fits the measured 0.51 MB/s. Writes spend the rest of their 9.2 ms on SD
+  programming time, paid again for every 4 KiB.
+- **Where the gain is:** read larger blocks from the card at once and overlap them with USB, and write
+  larger runs per SD command. Both amortize per-command cost. Reads can go first because they are
+  safe: they only add a read-ahead buffer that is thrown away on any write, eject or media change.
+
 ## Phase 1: instrument the firmware (done)
 
 Add storage counters to the BLE board-info JSON the app already reads, so no UART is needed:
@@ -85,7 +114,8 @@ For each, build, flash over Bluetooth, repeat the Phase 0 file tests three times
 | Experiment | Change | Safety check afterwards |
 | --- | --- | --- |
 | A | Remove per-command UART printing from the hot path | storage policy tests |
-| B | Larger SD batches (16 KiB, 32 KiB) if request size allows | partial-sector and boundary tests |
+| B1 | Read-ahead: fetch 32 KiB from the card on a sequential read and serve the next callbacks from RAM; discard on write, eject or media change (expected: reads toward 0.8 MB/s) | partial-sector and boundary tests, cold-cache hash |
+| B2 | Larger write runs per SD command. Needs a short write-behind buffer, which changes the current rule of no application write cache: flush it before any read, SYNCHRONIZE CACHE, eject, mode change or restart, and on a short timer. Decide deliberately before doing this | storage policy tests, eject and unplug tests, hash after eject |
 | C | Pre-erase hint before long writes if the card honors it | integrity hash |
 | D | 26 MHz SPI clock | 100 MiB read hash, no CRC errors |
 | E | Second card (different brand or class) | same tests |

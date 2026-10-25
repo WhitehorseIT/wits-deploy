@@ -918,8 +918,8 @@ class MainWindow(QMainWindow):
         finally:
             self._restore_auto_connect()
 
-    FIRMWARE_COLORS = {release_check.CURRENT: "#1e8e3e", release_check.UPDATE: "#b58900",
-                       release_check.CRITICAL: "#d32f2f"}
+    FIRMWARE_COLORS = {release_check.CURRENT: "#145c43", release_check.UPDATE: "#8a6500",
+                       release_check.CRITICAL: "#a71927"}  # fills, matching the board-state badges
     FIRMWARE_MEANING = {release_check.CURRENT: "up to date", release_check.UPDATE: "an update is available",
                         release_check.CRITICAL: "critical update available"}
 
@@ -927,14 +927,14 @@ class MainWindow(QMainWindow):
         item = self.items[address]
         item.setText(5, version)
         status = release_check.classify(version, self.latest_firmware)
-        font = item.font(5)
-        font.setBold(status is not None)
-        item.setFont(5, font)
         if status is None:
+            item.setData(5, Qt.ItemDataRole.BackgroundRole, None)
             item.setData(5, Qt.ItemDataRole.ForegroundRole, None)
             item.setToolTip(5, "")
             return
-        item.setForeground(5, QColor(self.FIRMWARE_COLORS[status]))
+        # Highlight the cell; the text stays white.
+        item.setBackground(5, QColor(self.FIRMWARE_COLORS[status]))
+        item.setForeground(5, QColor("#ffffff"))
         item.setToolTip(5, f"{self.FIRMWARE_MEANING[status].capitalize()} (newest known: {self.latest_firmware.version})")
 
     def start_release_check(self) -> None:

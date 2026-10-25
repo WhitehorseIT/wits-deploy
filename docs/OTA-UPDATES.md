@@ -63,7 +63,10 @@ newer on existing models; dev10 on Waveshare147). It uses the paired,
 MITM-authenticated, encrypted BLE connection. The PC keeps its normal network
 connection; no Wi-Fi hotspot is involved. The browser controller has no OTA UI.
 
-1. Finish writes and safely eject writable storage on its target PC.
+1. Finish writes and safely eject writable storage on its target PC. Update **one board at a
+   time**: Bluetooth shares airtime between connections, and an update measured 0.4 KB/s with three
+   boards connected against about 12 KB/s with one. The app offers to disconnect the other boards
+   first; they stay disconnected until you click Connect.
 2. The board starts in HID mode (older firmware: enter HID first). Connect in the desktop
    app and leave the board DISARMED.
 3. Highlight exactly one board, choose OTA Update, select the common JSON and

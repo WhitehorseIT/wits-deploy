@@ -86,6 +86,7 @@ class UiBridge(QObject):
     passkey_requested = Signal(object)
     passkey_finished = Signal(str)
     management_finished = Signal(str, str)
+    update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
 
 class AsyncRunner:
@@ -202,6 +203,7 @@ class MainWindow(QMainWindow):
         self.bridge.task_failed.connect(self._task_failed)
         self.bridge.board_event.connect(self._board_event)
         self.bridge.operation_error.connect(self._operation_error)
+        self.bridge.update_ready.connect(self._open_firmware_dialog)
         self.bridge.passkey_requested.connect(self._show_passkey_prompt)
         self.bridge.passkey_finished.connect(self._dismiss_passkey_prompt)
         self.bridge.management_finished.connect(self._management_finished)
@@ -860,7 +862,6 @@ class MainWindow(QMainWindow):
         UsbFlashDialog(self).exec()
 
     def _update_firmware(self) -> None:
-        from .firmware_dialog import FirmwareDialog
         addresses = self._require_management_selection()
         if len(addresses) != 1:
             if addresses:
@@ -870,6 +871,33 @@ class MainWindow(QMainWindow):
         state = self.states.get(address, {})
         if not state.get("connected") or not state.get("authenticated") or state.get("armed") or state.get("typing"):
             self._operation_error(address, RuntimeError("Connect and disarm the selected board before updating"))
+            return
+        others = [other for other, other_state in self.states.items()
+                  if other != address and other_state.get("connected") and other in self.items]
+        if others:
+            # Bluetooth shares airtime between connections: with several boards connected an
+            # update measured 0.4 KB/s against 12 KB/s with one, so only one board stays connected.
+            names = ", ".join(self.items[other].text(1) for other in others)
+            answer = QMessageBox.question(
+                self, "Other boards are connected",
+                f"{names} {'is' if len(others) == 1 else 'are'} also connected. A Bluetooth update runs "
+                "far slower (often more than 20 times slower) while other boards are connected.\n\n"
+                "Disconnect the other board(s) first? They stay disconnected until you click Connect.")
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            self._cancel_delivery_for(others, "Disconnected for a firmware update")
+            self.runner.submit(
+                self.controller.disconnect_many(others),
+                on_finished=lambda: self.bridge.update_ready.emit(address),  # runs off the interface thread
+                on_error=lambda error: self.bridge.operation_error.emit(address, safe_error(error)),
+                operation="disconnect other boards for update",
+            )
+            return
+        self._open_firmware_dialog(address)
+
+    def _open_firmware_dialog(self, address: str) -> None:
+        from .firmware_dialog import FirmwareDialog
+        if address not in self.items:
             return
         self._cancel_delivery("Firmware updater opened")
         FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self).exec()

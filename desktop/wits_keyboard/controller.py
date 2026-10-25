@@ -183,6 +183,10 @@ class KeyboardController:
         if session is not None:
             await session.disconnect()
 
+    async def disconnect_many(self, addresses) -> None:
+        """Disconnect the given boards together; one failing does not stop the others."""
+        await asyncio.gather(*(self.disconnect(address) for address in addresses), return_exceptions=True)
+
     async def disconnect_all(self) -> None:
         logger.info("Disconnect all sessions count=%d", len(self.sessions))
         await self.reconnector.stop()

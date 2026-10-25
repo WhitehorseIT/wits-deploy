@@ -388,7 +388,8 @@ class MainWindow(QMainWindow):
         header = self.device_tree.header()
         header.moveSection(4, 1)
         header.moveSection(5, 4)  # Firmware sits between Board state and Last result
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)  # user-resizable
+        self.device_tree.setColumnWidth(5, 120)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(True)

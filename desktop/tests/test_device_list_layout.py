@@ -57,6 +57,7 @@ class DeviceListLayoutTests(unittest.TestCase):
         header = tree.header()
         self.assertEqual(header.visualIndex(FIRMWARE), header.visualIndex(STATE) + 1)
         self.assertEqual(header.visualIndex(RESULT), header.visualIndex(FIRMWARE) + 1)
+        self.assertEqual(header.sectionResizeMode(FIRMWARE), QHeaderView.ResizeMode.Interactive)
         self.window._add_or_update_device(DiscoveredBoard("A", "Board A"))
         self.window._board_event("A", "board_info", {"firmware": "0.2.0-dev18", "board": "tqtpro"})
         self.assertEqual(self.window.items["A"].text(FIRMWARE), "0.2.0-dev18")

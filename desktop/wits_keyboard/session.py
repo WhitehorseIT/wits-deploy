@@ -1,4 +1,4 @@
-"""One authenticated BLE session to a WITS Keyboard."""
+"""One authenticated BLE session to a WITS Deploy board."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class BoardSession:
     ) -> None:
         self.device = device
         self.address = device.address
-        self.name = device.name or "WITS Keyboard"
+        self.name = device.name or "WITS Deploy"
         self.event_callback = event_callback
         self.client_factory = client_factory
         self.pairing_callback = pairing_callback

@@ -19,7 +19,9 @@ def main():
     project = Path(__file__).resolve().parents[1]
     release = project / "releases" / "firmware" / args.version / "waveshare7"
     kind = "app" if args.app_only else "factory"
-    image = release / f"WITS-Keyboard-Waveshare7-{args.version}.{kind}.bin"
+    image = next((release / name for name in (f"WITS-Deploy-Waveshare7-{args.version}.{kind}.bin",
+                                              f"WITS-Keyboard-Waveshare7-{args.version}.{kind}.bin")
+                  if (release / name).is_file()), release / f"WITS-Deploy-Waveshare7-{args.version}.{kind}.bin")
     expected = dict(line.split("  ", 1)[::-1] for line in
                     (release / "SHA256SUMS.txt").read_text().splitlines())
     if hashlib.sha256(image.read_bytes()).hexdigest() != expected.get(image.name):

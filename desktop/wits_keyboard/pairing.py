@@ -28,7 +28,7 @@ class PasskeyAgent(ServiceInterface):
         self.address = device.address
         # ServiceInterface.name is the D-Bus interface identity. Overwriting it
         # exports our methods under the board name, so BlueZ gets UnknownMethod.
-        self.device_name = device.name or "WITS Keyboard"
+        self.device_name = device.name or "WITS Deploy"
         self.callback = callback
         self.prompt_task: asyncio.Task[int | None] | None = None
 

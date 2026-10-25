@@ -119,7 +119,7 @@ void setup() {
     // only for the programming personality.
     usbSerial = new USBCDC();
     usbSerial->begin(115200);
-    USB.productName("WITS Keyboard Programming");
+    USB.productName("WITS Deploy Programming");
   }
   StartupTrace::mark("USB begin");
   bool usbReady = USB.begin();
@@ -135,7 +135,7 @@ void setup() {
   }
 
   if (usbSerial != nullptr) {
-    usbSerial->print("WITS Keyboard firmware ");
+    usbSerial->print("WITS Deploy firmware ");
     usbSerial->println(Firmware::VERSION);
   }
   logLine("Booted in programming mode (CDC only).");
@@ -357,6 +357,7 @@ void updateProgrammingButtons() {
 }
 
 #if !WITS_HAS_TOUCHSCREEN
+uint16_t programChordPermille = 0;  // progress for the on-screen PROGRAM bar
 // T-QT Pro has no touch menu, so holding both buttons for 3 seconds enters programming mode.
 // While both are down, the single-button actions (pairing, arming, clearing bonds) are
 // suppressed, including when each button is released.
@@ -366,6 +367,7 @@ void updateProgramChord() {
   bool both = digitalRead(LEFT_BUTTON_PIN) == LOW && digitalRead(RIGHT_BUTTON_PIN) == LOW;
   if (!both) {
     active = false;
+    programChordPermille = 0;
     return;
   }
   if (!active) {
@@ -375,7 +377,9 @@ void updateProgramChord() {
   }
   leftButton.longPressHandled = true;
   rightButton.longPressHandled = true;
-  if (millis() - startedAt >= PROGRAM_CHORD_MS) {
+  uint32_t held = millis() - startedAt;
+  programChordPermille = held >= PROGRAM_CHORD_MS ? 1000 : static_cast<uint16_t>(held * 1000 / PROGRAM_CHORD_MS);
+  if (held >= PROGRAM_CHORD_MS) {
     active = false;
     switchToProgrammingMode();
   }
@@ -451,6 +455,9 @@ void loop() {
     StatusDisplay::updateHoldProgress(
         holdProgressPermille(leftButton, LONG_PRESS_MS),
         holdProgressPermille(rightButton, BOND_RESET_PRESS_MS));
+#if !WITS_HAS_TOUCHSCREEN
+    StatusDisplay::updateProgramChord(programChordPermille);
+#endif
   } else {
 #if !WITS_HAS_TOUCHSCREEN
     updateProgrammingButtons();

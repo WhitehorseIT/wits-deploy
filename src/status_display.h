@@ -13,6 +13,8 @@ void showPairingCleared();
 void showStorageBusy();
 void showUpdate();
 void updateHoldProgress(uint16_t leftPermille, uint16_t rightPermille);
+// T-QT Pro only: both buttons held to enter programming mode. 0 = not held; 1..1000 = progress.
+void updateProgramChord(uint16_t permille);
 void update(bool hidMode,
             bool connected,
             bool authenticated,

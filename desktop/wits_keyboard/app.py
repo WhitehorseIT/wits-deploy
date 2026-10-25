@@ -1,4 +1,4 @@
-"""PySide6 desktop interface for one or more WITS Keyboards."""
+"""PySide6 desktop interface for one or more WITS Deploy boards."""
 
 from __future__ import annotations
 
@@ -181,6 +181,8 @@ class MainWindow(QMainWindow):
             self.bridge.board_event.emit, pairing_callback=self._request_passkey
         )
         self.runner = AsyncRunner(self.bridge)
+        # The settings identity keeps its original name on purpose: renaming it would
+        # orphan every user's saved boards, names and delays.
         self.settings = QSettings("Whitehorse IT Solutions", "WITS Keyboard")
         self.items: dict[str, QTreeWidgetItem] = {}
         self.states: dict[str, dict[str, Any]] = {}
@@ -229,7 +231,7 @@ class MainWindow(QMainWindow):
         self.settings.endGroup()
         present = {item["address"] for item in saved
                    if isinstance(item, dict) and isinstance(item.get("address"), str)}
-        saved.extend({"address": address, "name": "WITS Keyboard"}
+        saved.extend({"address": address, "name": "WITS Deploy"}
                      for address in aliases if address not in present)
         for item in saved:
             if not isinstance(item, dict):
@@ -264,7 +266,7 @@ class MainWindow(QMainWindow):
 
     def _show_passkey_prompt(self, request: PasskeyRequest) -> None:
         dialog = QDialog(self)
-        dialog.setWindowTitle("Pair WITS Keyboard")
+        dialog.setWindowTitle("Pair WITS Deploy board")
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         layout = QVBoxLayout(dialog)
         alias = self.items.get(request.address)
@@ -314,7 +316,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
         root_layout = QVBoxLayout(root)
 
-        heading = QLabel(f"WITS Keyboard Controller {__version__}")
+        heading = QLabel(f"WITS Deploy Controller {__version__}")
         heading.setStyleSheet("font-size: 22px; font-weight: 700;")
         root_layout.addWidget(heading)
 
@@ -605,7 +607,7 @@ class MainWindow(QMainWindow):
     def _scan(self) -> None:
         logger.info("UI scan requested")
         self.scan_button.setEnabled(False)
-        self.status_label.setText("Scanning for WITS Keyboards…")
+        self.status_label.setText("Scanning for WITS Deploy boards…")
         self.runner.submit(
             self.controller.scan(),
             self.bridge.scan_finished.emit,
@@ -620,7 +622,7 @@ class MainWindow(QMainWindow):
             self._add_or_update_device(board)
         self._save_devices()
         count = len(boards)
-        self.status_label.setText(f"Found {count} WITS Keyboard{'s' if count != 1 else ''}")
+        self.status_label.setText(f"Found {count} WITS Deploy board{'s' if count != 1 else ''}")
         self._log(f"Scan completed: {count} board{'s' if count != 1 else ''} found")
 
     def _add_or_update_device(self, board: DiscoveredBoard) -> None:

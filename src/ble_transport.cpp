@@ -118,7 +118,7 @@ void initializeIdentity() {
   uint16_t suffix = static_cast<uint16_t>(ESP.getEfuseMac() & 0xffff);
   snprintf(deviceIdBuffer, sizeof(deviceIdBuffer), "%04X", suffix);
   snprintf(deviceNameBuffer, sizeof(deviceNameBuffer),
-           "WITS Keyboard-%s", deviceIdBuffer);
+           "WITS Deploy-%s", deviceIdBuffer);
 }
 
 void rotatePasskey() {

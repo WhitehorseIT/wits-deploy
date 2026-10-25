@@ -52,8 +52,13 @@ def main():
         shutil.rmtree(build)
     build.mkdir(parents=True)
     firmware_version = (SOURCE / "packaging" / "firmware-release.txt").read_text().strip()
-    manifest = args.firmware or (PROJECT / "releases" / "firmware" / firmware_version /
-                                 f"WITS-Keyboard-Release-{firmware_version}.ota.json")
+    release_folder = PROJECT / "releases" / "firmware" / firmware_version
+    # Releases from 0.2.0-dev18 use the WITS-Deploy prefix; older ones keep WITS-Keyboard.
+    manifest = args.firmware or next(
+        (release_folder / name for name in (f"WITS-Deploy-Release-{firmware_version}.ota.json",
+                                            f"WITS-Keyboard-Release-{firmware_version}.ota.json")
+         if (release_folder / name).is_file()),
+        release_folder / f"WITS-Deploy-Release-{firmware_version}.ota.json")
     try:
         firmware = stage_release(manifest, build / "firmware")
     except (ValueError, OSError) as error:

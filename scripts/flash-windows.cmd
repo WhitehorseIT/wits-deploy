@@ -3,7 +3,7 @@ setlocal
 
 if "%~1"=="" (
   echo Usage: flash-windows.cmd COM_PORT FIRMWARE_FILE
-  echo Example: flash-windows.cmd COM5 WITS-Keyboard-0.1.0.factory.bin
+  echo Example: flash-windows.cmd COM5 WITS-Deploy-TQTPro-0.2.0-dev18.factory.bin
   exit /b 2
 )
 

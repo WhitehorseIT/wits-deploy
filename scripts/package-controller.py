@@ -20,7 +20,7 @@ def main():
                    if isinstance(node, ast.Assign) and any(
                        isinstance(target, ast.Name) and target.id == "__version__" for target in node.targets))
     release = project / "releases/desktop" / version
-    archive_path = release / f"WITS-Keyboard-App-{version}.zip"
+    archive_path = release / f"WITS-Deploy-App-{version}.zip"
     if archive_path.exists():
         raise RuntimeError("Existing app archive is immutable; use a new version")
     entries = {"README-FIRST.txt": (release / "README-FIRST.txt").read_bytes()}
@@ -45,7 +45,7 @@ def main():
                     sha256={name: sha(data) for name, data in entries.items()})
     entries["MANIFEST.json"] = (json.dumps(manifest, indent=2) + "\n").encode()
     entries["SHA256SUMS.txt"] = "".join(f"{sha(data)}  {name}\n" for name, data in sorted(entries.items())).encode()
-    root = f"WITS-Keyboard-App-{version}/"
+    root = f"WITS-Deploy-App-{version}/"
     with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
         for name, data in entries.items():
             entry = ZipInfo(root + name)

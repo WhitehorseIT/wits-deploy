@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo WITS Keyboard Controller - Windows setup
+echo WITS Deploy Controller - Windows setup
 echo.
 where py >nul 2>&1
 if errorlevel 1 goto no_python

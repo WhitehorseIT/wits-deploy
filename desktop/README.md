@@ -1,4 +1,4 @@
-# WITS Keyboard Controller
+# WITS Deploy Controller
 
 Native Windows/Linux controller for one or more WITS Deployment Keyboards.
 It talks directly to each board through the operating system's BLE stack; it

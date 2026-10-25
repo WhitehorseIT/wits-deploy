@@ -18,6 +18,12 @@ constexpr int HOLD_BAR_HEIGHT = 6;
 constexpr int HOLD_BAR_WIDTH = 54;
 constexpr int LEFT_HOLD_BAR_X = 6;
 constexpr int RIGHT_HOLD_BAR_X = 68;
+// Both-buttons-held feedback: a wide bar above a centred PROGRAM label, replacing the button hints.
+constexpr int CHORD_STRIP_Y = 96;
+constexpr int CHORD_BAR_WIDTH = 100;
+constexpr int CHORD_BAR_HEIGHT = 8;
+constexpr int CHORD_BAR_X = (128 - CHORD_BAR_WIDTH) / 2;
+constexpr int CHORD_BAR_Y = 97;
 
 constexpr uint16_t rgb565(uint8_t red, uint8_t green, uint8_t blue) {
   return static_cast<uint16_t>(((red & 0xf8) << 8) |
@@ -64,6 +70,8 @@ ScreenState holdBarsState = ScreenState::Unknown;
 int previousLeftHoldPixels = -1;
 int previousRightHoldPixels = -1;
 uint16_t currentBackground = COLOR_BLACK;
+bool chordShown = false;
+int previousChordPixels = -1;
 
 void centeredText(const char *text,
                   int y,
@@ -355,7 +363,7 @@ void showPairingCleared() {
 
 void updateHoldProgress(uint16_t leftPermille, uint16_t rightPermille) {
   if (!initialized || pairingClearedNoticeActive ||
-      previousState == ScreenState::Unknown) {
+      previousState == ScreenState::Unknown || chordShown) {
     return;
   }
 
@@ -375,6 +383,39 @@ void updateHoldProgress(uint16_t leftPermille, uint16_t rightPermille) {
   holdBarsState = previousState;
   previousLeftHoldPixels = leftPixels;
   previousRightHoldPixels = rightPixels;
+}
+
+void updateProgramChord(uint16_t permille) {
+  if (!initialized || pairingClearedNoticeActive || previousState == ScreenState::Unknown) {
+    return;
+  }
+  if (permille == 0) {
+    if (chordShown) {
+      // Released early: redraw the normal screen, hints and hold bars included.
+      chordShown = false;
+      previousChordPixels = -1;
+      previousState = ScreenState::Unknown;
+      holdBarsState = ScreenState::Unknown;
+    }
+    return;
+  }
+  if (!chordShown) {
+    chordShown = true;
+    previousChordPixels = -1;
+    // Replace the button hints and the two hold bars with the PROGRAM label.
+    gfx->fillRect(0, CHORD_STRIP_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - CHORD_STRIP_Y, currentBackground);
+    centeredText("PROGRAM", 110, 2, COLOR_WHITE);
+  }
+  uint16_t bounded = permille > 1000 ? 1000 : permille;
+  int pixels = static_cast<int>((static_cast<uint32_t>(bounded) * (CHORD_BAR_WIDTH - 2)) / 1000);
+  if (pixels != previousChordPixels) {
+    gfx->drawRect(CHORD_BAR_X, CHORD_BAR_Y, CHORD_BAR_WIDTH, CHORD_BAR_HEIGHT, COLOR_MUTED);
+    gfx->fillRect(CHORD_BAR_X + 1, CHORD_BAR_Y + 1, CHORD_BAR_WIDTH - 2, CHORD_BAR_HEIGHT - 2, currentBackground);
+    if (pixels > 0) {
+      gfx->fillRect(CHORD_BAR_X + 1, CHORD_BAR_Y + 1, pixels, CHORD_BAR_HEIGHT - 2, COLOR_WHITE);
+    }
+    previousChordPixels = pixels;
+  }
 }
 
 void update(bool hidMode,
@@ -422,6 +463,8 @@ void update(bool hidMode,
   }
 
   render(state, pairingSeconds, identifyLabel);
+  chordShown = false;  // a redraw replaced the strip; the next chord update redraws it
+  previousChordPixels = -1;
   previousState = state;
   previousPairingSeconds = pairingSeconds;
   previousPasskey = passkey;

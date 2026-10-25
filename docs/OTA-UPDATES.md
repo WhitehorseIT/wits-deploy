@@ -8,7 +8,7 @@ retain the same Bluetooth service layout and board codes.
 ## One manifest, three board models
 
 Extract the entire firmware ZIP, preserving folders, then select
-`releases/firmware/0.2.0-dev13/WITS-Keyboard-Release-0.2.0-dev13.ota.json`.
+`releases/firmware/0.2.0-dev18/WITS-Deploy-Release-0.2.0-dev18.ota.json`.
 It describes app and factory images for `tqtpro`, `waveshare7` and
 `waveshare147`. Each model uses a different binary; all units of the same
 model share one binary. The Bluetooth updater reads authenticated board info

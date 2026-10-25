@@ -33,7 +33,7 @@ async def cached_linux_device(address: str) -> Any:
                 if "Address" not in values or values["Address"].value.lower() != address.lower():
                     continue
                 props = {key: value.value for key, value in values.items()}
-                return BLEDevice(props["Address"], props.get("Name", "WITS Keyboard"),
+                return BLEDevice(props["Address"], props.get("Name", "WITS Deploy"),
                                  {"path": path, "props": props})
         return None
     finally:

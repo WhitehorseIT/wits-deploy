@@ -64,7 +64,7 @@ class KeyboardController:
         logger.info("BLE scan returned %d matching device(s)", len(found))
         boards: list[DiscoveredBoard] = []
         for device in found:
-            name = device.name or "WITS Keyboard"
+            name = device.name or "WITS Deploy"
             self.devices[device.address] = device
             boards.append(DiscoveredBoard(device.address, name))
             self.known_devices[device.address] = boards[-1]

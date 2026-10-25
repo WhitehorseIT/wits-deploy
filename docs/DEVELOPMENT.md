@@ -64,7 +64,7 @@ releases/firmware/VERSION/
   tqtpro/
   waveshare7/
   waveshare147/
-  WITS-Keyboard-Release-VERSION.ota.json
+  WITS-Deploy-Release-VERSION.ota.json
 ```
 
 Each model folder contains app/factory images, checksums, and its individual
@@ -79,7 +79,7 @@ python3 scripts/make-ota-catalog.py releases/firmware/VERSION
 Package the firmware and common manifest:
 
 ```bash
-python3 scripts/package-ota-release.py releases/firmware/VERSION/WITS-Keyboard-Release-VERSION.ota.json
+python3 scripts/package-ota-release.py releases/firmware/VERSION/WITS-Deploy-Release-VERSION.ota.json
 ```
 
 For the app, set `desktop/wits_keyboard/__init__.py` to the intended app version
@@ -91,7 +91,26 @@ python3 scripts/package-controller.py
 
 Firmware and app versions may differ. Build and package scripts refuse to
 overwrite existing releases; bump the relevant version for changed artifacts.
-Existing filenames retain the `WITS-Keyboard` prefix.
+
+## Naming
+
+The product is **WITS Deploy**. Releases from 0.2.0-dev18 name their files with the `WITS-Deploy`
+prefix (`WITS-Deploy-TQTPro-VERSION`, `WITS-Deploy-Waveshare7-VERSION`,
+`WITS-Deploy-Waveshare147-VERSION`, `WITS-Deploy-Release-VERSION.ota.json`,
+`WITS-Deploy-Firmware-VERSION.zip`). Older releases keep their original `WITS-Keyboard` names
+and are never renamed or rewritten; the scripts and the app look for the new name first and fall
+back to the old one.
+
+Some internal identifiers keep the old name on purpose, because changing them would break
+something for existing users:
+
+| Identifier | Why it stays |
+| --- | --- |
+| Saved-settings key (`QSettings("Whitehorse IT Solutions", "WITS Keyboard")`) | Renaming it would forget every user's saved boards, names and delays |
+| Python package `wits_keyboard` and the log file `wits-keyboard-debug.log` | Internal names with no user-facing effect; renaming adds churn without benefit |
+| Pairing agent path `/com/whitehorseit/WitsKeyboard/PairingAgent` | Internal D-Bus identifier |
+| `deploy/` service and directory names (`wits-keyboard`) | They name a live hosted deployment; renaming means migrating the server |
+| `scripts/package-stable-release.py` | Legacy promotion of the 0.1.x T-QT Pro releases, which keep their names |
 
 See the [release layout](../releases/README.md) and
 [update/recovery guide](OTA-UPDATES.md) for distribution and flashing details.

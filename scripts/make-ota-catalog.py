@@ -19,12 +19,18 @@ def main():
     version = root.name
     if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z.-]*", version):
         parser.error("invalid release folder name")
-    paths = {
-        "tqtpro": root / "tqtpro" / f"WITS-Keyboard-{version}.ota.json",
-        "waveshare7": root / "waveshare7" / f"WITS-Keyboard-Waveshare7-{version}.ota.json",
-        "waveshare147": root / "waveshare147" / f"WITS-Keyboard-Waveshare147-{version}.ota.json",
+    # Releases from 0.2.0-dev18 use the WITS-Deploy prefix; older ones keep WITS-Keyboard.
+    names = {
+        "tqtpro": (f"WITS-Deploy-TQTPro-{version}.ota.json", f"WITS-Keyboard-{version}.ota.json"),
+        "waveshare7": (f"WITS-Deploy-Waveshare7-{version}.ota.json", f"WITS-Keyboard-Waveshare7-{version}.ota.json"),
+        "waveshare147": (f"WITS-Deploy-Waveshare147-{version}.ota.json", f"WITS-Keyboard-Waveshare147-{version}.ota.json"),
     }
-    paths = {board: path for board, path in paths.items() if path.is_file()}
+    paths = {}
+    for board, candidates in names.items():
+        found = next((root / board / name for name in candidates if (root / board / name).is_file()), None)
+        if found:
+            paths[board] = found
+    legacy = bool(paths) and all(path.name.startswith("WITS-Keyboard-") for path in paths.values())
     if not paths:
         parser.error("no supported model manifests found")
     images = {}
@@ -43,7 +49,7 @@ def main():
             parser.error(f"factory checksum mismatch: {factory}")
         images[board]["factory"] = dict(filename=factory.relative_to(root).as_posix(), size=len(data), sha256=digest)
     text = json.dumps(dict(schema=2, firmware=version, images=images), indent=2) + "\n"
-    output = root / f"WITS-Keyboard-Release-{version}.ota.json"
+    output = root / (f"WITS-Keyboard-Release-{version}.ota.json" if legacy else f"WITS-Deploy-Release-{version}.ota.json")
     if output.exists():
         if output.read_text() != text:
             parser.error("refusing to replace an existing release catalog with different contents")

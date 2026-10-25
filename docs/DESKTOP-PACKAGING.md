@@ -78,7 +78,7 @@ boards. Local builds use the complete release named in
 no binaries, extract a firmware ZIP and pass its common JSON, for example:
 
 ```bash
-bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Keyboard-Release-0.2.0-dev13.ota.json
+bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Deploy-Release-0.2.0-dev18.ota.json
 ```
 
 The builder validates every image's model, size, SHA-256 and matching app/factory

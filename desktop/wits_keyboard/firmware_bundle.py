@@ -18,8 +18,12 @@ def bundled_manifest():
     version = pointer.read_text().strip()
     if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z.-]*", version):
         return None
-    path = desktop.parent / "releases" / "firmware" / version / f"WITS-Keyboard-Release-{version}.ota.json"
-    if not path.is_file():
+    folder = desktop.parent / "releases" / "firmware" / version
+    # Releases from 0.2.0-dev18 use the WITS-Deploy prefix; older ones keep WITS-Keyboard.
+    path = next((folder / name for name in (f"WITS-Deploy-Release-{version}.ota.json",
+                                            f"WITS-Keyboard-Release-{version}.ota.json")
+                 if (folder / name).is_file()), None)
+    if path is None:
         return None
     release = load_release(path)
     # Source clones track manifests but not binaries. Leave manual selection

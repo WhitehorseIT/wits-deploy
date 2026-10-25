@@ -74,7 +74,7 @@ void button(int index, const char *label, uint16_t background, uint16_t foregrou
 }
 void frame(const char *headline, uint16_t background) {
   gfx->fillScreen(background);
-  text("WITS KEYBOARD", 24, 18, 3);
+  text("WITS DEPLOY", 24, 18, 3);
   String version = String("FW ") + Firmware::VERSION;
   text(version.c_str(), 800 - 24 - version.length() * 12, 22, 2, MUTED);
   text(headline, 24, 78, 5);

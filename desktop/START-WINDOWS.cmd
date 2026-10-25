@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" goto no_setup
-echo Starting WITS Keyboard Controller...
+echo Starting WITS Deploy Controller...
 echo Keep this console open while using the controller.
 ".venv\Scripts\python.exe" run.py
 if errorlevel 1 goto failed

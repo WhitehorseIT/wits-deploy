@@ -16,7 +16,7 @@ def main():
     args = parser.parse_args()
     manifest = args.manifest.resolve()
     release = load_release(manifest)
-    archive = manifest.parent / f"WITS-Keyboard-Firmware-{release.version}.zip"
+    archive = manifest.parent / f"WITS-Deploy-Firmware-{release.version}.zip"
     if archive.exists():
         parser.error("existing archive is immutable; use a new release")
     entries = {manifest.name: manifest.read_bytes()}

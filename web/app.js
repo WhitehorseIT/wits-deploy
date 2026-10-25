@@ -252,7 +252,7 @@ async function connect() {
     filters: [{ services: [SERVICE_UUID] }],
   });
   device.addEventListener("gattserverdisconnected", handleDisconnected);
-  ui.device.textContent = device.name || "WITS Keyboard";
+  ui.device.textContent = device.name || "WITS Deploy";
 
   const server = await device.gatt.connect();
   const service = await server.getPrimaryService(SERVICE_UUID);

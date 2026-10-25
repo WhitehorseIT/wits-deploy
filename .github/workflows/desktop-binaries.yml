@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           version=$(cat desktop/packaging/firmware-release.txt)
-          python scripts/build-desktop.py --output dist/native --firmware "build/included-firmware/$version/WITS-Keyboard-Release-$version.ota.json"
+          python scripts/build-desktop.py --output dist/native --firmware "build/included-firmware/$version/WITS-Deploy-Release-$version.ota.json"
       - uses: actions/upload-artifact@v7
         with:
           name: WITS-Deploy-${{ runner.os }}-x64

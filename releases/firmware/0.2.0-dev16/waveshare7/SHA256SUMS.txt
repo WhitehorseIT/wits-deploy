@@ -1,0 +1,2 @@
+7846cdf4f77bb900ffb04b21d6531f61680a254b6fd7c11e660a1cd435c466b3  WITS-Keyboard-Waveshare7-0.2.0-dev16.factory.bin
+d3da21e2af864e93737b15cee78713587af64a83adebec776b590d7d64532d53  WITS-Keyboard-Waveshare7-0.2.0-dev16.app.bin

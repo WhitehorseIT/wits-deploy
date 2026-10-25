@@ -36,6 +36,10 @@ uint32_t readRequests = 0, writeRequests = 0, readBytes = 0, writeBytes = 0;
 uint32_t ioErrors = 0, maxIoMs = 0, lastStatsAt = 0;
 IoStats totalStats;  // never reset; guarded by stateMux
 
+// Sequential-read window: see ReadAhead in storage_transfer.h. Touched only with ioMutex held.
+DMA_ATTR uint8_t readAheadBuffer[READ_AHEAD_SECTORS * SECTOR_BYTES];
+ReadAhead readAhead;
+
 Policy readPolicy() {
   portENTER_CRITICAL(&stateMux);
   Policy copy = policy;
@@ -46,6 +50,7 @@ Policy readPolicy() {
 void failIo() {
   portENTER_CRITICAL(&stateMux);
   policy.fail();
+  readAhead.drop();
   reinsertPending = false;
   ++ioErrors;
   ++totalStats.errors;
@@ -72,6 +77,7 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
     return -1;
   }
   auto *bytes = static_cast<uint8_t *>(buffer);
+  if (write) readAhead.drop();  // the card is about to change
   uint32_t done = 0;
   uint32_t started = millis();
   int64_t startedUs = esp_timer_get_time();
@@ -84,13 +90,13 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
       return -1;
     }
     esp_err_t result = ESP_OK;
-    if (!write || chunk.partial) {
-      int64_t before = esp_timer_get_time();
-      result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
-      sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
-    }
-    if (result == ESP_OK) {
-      if (write) {
+    if (write) {
+      if (chunk.partial) {
+        int64_t before = esp_timer_get_time();
+        result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
+        sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
+      }
+      if (result == ESP_OK) {
         // Recheck media state after a partial-sector read.
         if (!readPolicy().canWrite()) {
           tud_msc_set_sense(0, SCSI_SENSE_DATA_PROTECT, 0x27, 0);
@@ -101,7 +107,36 @@ int32_t transfer(uint32_t lba, uint32_t offset, void *buffer,
         int64_t before = esp_timer_get_time();
         result = sdmmc_write_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
         sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
-      } else memcpy(bytes + done, ioBuffer + chunk.offset, chunk.bytes);
+      }
+    } else {
+      uint64_t position = start + done;
+      bool covered = readAhead.covers(chunk.sector, chunk.sectors);
+      if (!covered && readAhead.sequential(position)) {
+        uint32_t sectors = readAhead.window(chunk.sector, chunk.sectors, capacityBytes / SECTOR_BYTES);
+        if (sectors) {
+          int64_t before = esp_timer_get_time();
+          result = sdmmc_read_sectors(&card, readAheadBuffer, chunk.sector, sectors);
+          sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
+          if (result == ESP_OK) {
+            readAhead.filled(chunk.sector, sectors);
+            covered = true;
+          } else {
+            readAhead.drop();
+          }
+        }
+      }
+      if (result == ESP_OK) {
+        if (covered) {
+          memcpy(bytes + done,
+                 readAheadBuffer + (chunk.sector - readAhead.start) * SECTOR_BYTES + chunk.offset, chunk.bytes);
+        } else {
+          int64_t before = esp_timer_get_time();
+          result = sdmmc_read_sectors(&card, ioBuffer, chunk.sector, chunk.sectors);
+          sdUs += static_cast<uint64_t>(esp_timer_get_time() - before);
+          if (result == ESP_OK) memcpy(bytes + done, ioBuffer + chunk.offset, chunk.bytes);
+        }
+        if (result == ESP_OK) readAhead.served(position, chunk.bytes);
+      }
     }
     if (result != ESP_OK) {
       failIo();
@@ -166,6 +201,7 @@ bool startStop(uint8_t power, bool start, bool loadEject) {
     // Host's explicit eject. Never grant writes from a host load command.
     portENTER_CRITICAL(&stateMux);
     policy.eject();
+    readAhead.drop();
     reinsertPending = false;
     lastEjectAt = millis();
     portEXIT_CRITICAL(&stateMux);
@@ -260,6 +296,7 @@ Result configure(bool allowWrites) {
   }
   bool liveExport = policy.exported;
   Result result = policy.configure(allowWrites);
+  readAhead.drop();  // any mode change starts from a clean window
   bool upgradeInPlace = result == Result::Ok && liveExport;
   if (upgradeInPlace) {
     reinsertPending = true;
@@ -291,6 +328,7 @@ bool prepareRestart() {
   }
   stopping = true;
   policy.exported = false;
+  readAhead.drop();
   reinsertPending = false;
   portEXIT_CRITICAL(&stateMux);
   msc->mediaPresent(false);

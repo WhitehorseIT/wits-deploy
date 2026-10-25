@@ -90,3 +90,48 @@ constexpr bool scsiFlushProtocol() {
   return Storage::handleScsi(1, command, 0, flush, setSense) == -1 && sense == 0x0525;
 }
 static_assert(scsiFlushProtocol(), "SCSI flush returns no-data success or a signed failure with correct sense");
+
+// Sequential read-ahead: how many SD commands a pattern of 4 KiB USB callbacks needs.
+constexpr uint32_t sdCommandsForReads(const uint64_t *positions, int count, uint64_t capacitySectors,
+                                      Storage::ReadAhead &window) {
+  uint32_t commands = 0;
+  for (int i = 0; i < count; ++i) {
+    uint64_t position = positions[i];
+    auto chunk = Storage::planChunk(position, 4096);
+    bool covered = window.covers(chunk.sector, chunk.sectors);
+    if (!covered && window.sequential(position)) {
+      uint32_t n = window.window(chunk.sector, chunk.sectors, capacitySectors);
+      if (n) { ++commands; window.filled(chunk.sector, n); covered = true; }
+    }
+    if (!covered) ++commands;  // plain single request
+    window.served(position, chunk.bytes);
+  }
+  return commands;
+}
+
+constexpr bool readAheadBehavior() {
+  constexpr uint64_t capacity = 1000000;
+  Storage::ReadAhead w;
+  uint64_t seq[16] = {};
+  for (int i = 0; i < 16; ++i) seq[i] = 8192 + uint64_t(i) * 4096;
+  // 16 sequential 4 KiB callbacks: the first is a plain read, then one 32 KiB window per
+  // 8 callbacks (2 windows). That is 3 SD commands instead of 16.
+  if (sdCommandsForReads(seq, 16, capacity, w) != 3) return false;
+  // Random 4 KiB reads never trigger read-ahead: one SD command each.
+  Storage::ReadAhead r;
+  uint64_t jumps[6] = {0, 409600, 4096, 819200, 40960, 2048000};
+  if (sdCommandsForReads(jumps, 6, capacity, r) != 6) return false;
+  // A window never fetches past the end of the card, and tiny remainders fall back to plain reads.
+  if (w.window(capacity - 10, 8, capacity) != 10 || w.window(capacity - 4, 8, capacity) != 0) return false;
+  if (w.window(capacity, 1, capacity) != 0 || w.window(0, 8, capacity) != Storage::READ_AHEAD_SECTORS) return false;
+  // covers() is exact: inside the window yes, one sector past the end no, before the start no.
+  Storage::ReadAhead c;
+  c.filled(100, 64);
+  if (!c.covers(100, 8) || !c.covers(156, 8) || c.covers(157, 8) || c.covers(99, 8) || c.covers(163, 2)) return false;
+  // drop() forgets the data and the sequence, so the next read is a plain read again.
+  c.served(51200, 4096);
+  if (!c.sequential(55296)) return false;
+  c.drop();
+  return !c.covers(100, 8) && !c.sequential(55296) && !c.sequential(0);
+}
+static_assert(readAheadBehavior(), "Read-ahead must serve sequential reads from RAM and never return stale or out-of-range data");

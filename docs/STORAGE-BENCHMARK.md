@@ -113,7 +113,7 @@ For each, build, flash over Bluetooth, repeat the Phase 0 file tests three times
 
 | Experiment | Change | Safety check afterwards |
 | --- | --- | --- |
-| A | Remove per-command UART printing from the hot path | storage policy tests |
+| A | Remove per-command UART printing from the hot path. Skipped: the prints are only on non-read/write SCSI commands (flush, start/stop), not in the read/write path, so removing them gains nothing | n/a |
 | B1 | Read-ahead: fetch 32 KiB from the card on a sequential read and serve the next callbacks from RAM; discard on write, eject or media change (expected: reads toward 0.8 MB/s) | partial-sector and boundary tests, cold-cache hash |
 | B2 | Larger write runs per SD command. Needs a short write-behind buffer, which changes the current rule of no application write cache: flush it before any read, SYNCHRONIZE CACHE, eject, mode change or restart, and on a short timer. Decide deliberately before doing this | storage policy tests, eject and unplug tests, hash after eject |
 | C | Pre-erase hint before long writes if the card honors it | integrity hash |
@@ -121,6 +121,13 @@ For each, build, flash over Bluetooth, repeat the Phase 0 file tests three times
 | E | Second card (different brand or class) | same tests |
 
 Keep a change only if it is faster in all three runs and every safety check passes.
+
+## Experiment log
+
+| Build | Change | Result |
+| --- | --- | --- |
+| dev15 | baseline (see above) | write 0.42 MB/s, read 0.51 MB/s |
+| dev16 | B1 read-ahead: a sequential read triggers one 32 KiB card read, the next callbacks are served from RAM; the window is dropped on any write, eject, mode change, error or restart (compile-time tests in `tests/storage_policy_test.cpp`) | built and checksummed, not yet measured on hardware. Expected: read toward 0.75 MB/s. Writes are unchanged and should still measure about 0.42 MB/s |
 
 ## Acceptance
 

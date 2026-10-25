@@ -2,11 +2,12 @@
 import asyncio
 import threading
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel,
                               QProgressBar, QPushButton, QVBoxLayout)
 from .firmware_update import BOARD_NAMES, load_release
 from .logging_config import safe_error
 from .firmware_bundle import bundled_manifest
+from .file_choice import choose_manifest
 
 
 class FirmwareDialog(QDialog):
@@ -64,7 +65,7 @@ class FirmwareDialog(QDialog):
             self.status.setText("Included firmware unavailable: " + safe_error(error))
 
     def _choose(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose update manifest", "", "WITS OTA manifest (*.ota.json)")
+        path = choose_manifest(self, "Choose update manifest")
         if not path:
             return
         self._load_manifest(path)

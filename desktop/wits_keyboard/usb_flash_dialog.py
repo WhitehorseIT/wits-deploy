@@ -3,11 +3,12 @@ import logging
 from pathlib import Path
 from PySide6.QtCore import QProcess, QProcessEnvironment, Qt
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import (QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QLabel,
     QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QVBoxLayout)
 from .firmware_update import BOARD_NAMES, load_release
 from .runtime import app_directory, worker_command
 from .firmware_bundle import bundled_manifest
+from .file_choice import choose_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class UsbFlashDialog(QDialog):
         if previous: self.port.setCurrentText(previous)
 
     def _choose(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose release", "", "WITS OTA manifest (*.ota.json)")
+        path = choose_manifest(self, "Choose release")
         if not path: return
         self._load_manifest(path)
 

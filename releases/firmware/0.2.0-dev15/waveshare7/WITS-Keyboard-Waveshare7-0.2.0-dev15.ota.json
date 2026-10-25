@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "board": "waveshare7",
+  "chip": "esp32s3",
+  "firmware": "0.2.0-dev15",
+  "filename": "WITS-Keyboard-Waveshare7-0.2.0-dev15.app.bin",
+  "size": 980208,
+  "sha256": "32eb96e0123df2dbd659699c8eea194a0e14025deece7d03eaf4279adc4b03dd"
+}

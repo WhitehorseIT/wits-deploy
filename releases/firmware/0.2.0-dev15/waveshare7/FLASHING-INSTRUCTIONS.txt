@@ -1,0 +1,32 @@
+WITS DEPLOY — USB FLASHING
+
+Use desktop USB Flash/Update with the common release JSON whenever possible.
+It verifies model flash capacity, partition layout and image hashes. Select
+Install blank board/factory recovery for first installation; this clears
+existing board settings. Update working board writes/verifies the inactive
+slot before changing boot selection and preserves pairings.
+
+The 1.47-inch target in dev10 is a hardware bring-up build, not production
+validated. Read this model folder's README-FIRST.txt for the exact board and
+first-test sequence. Do not use another model's binary.
+
+Close serial monitors. Enter FLASH/ROM bootloader mode before opening the
+flasher. T-QT Pro and Waveshare147 use native USB; Waveshare7 uses UART for
+flashing and a separate USB connector for keyboard/storage. Safely eject
+writable USB storage before updates, mode changes or resets.
+
+WINDOWS FACTORY FALLBACK (clears settings)
+Install Python 3.11+ and esptool: py -m pip install esptool
+From the model's loose release folder run:
+  flash-windows.cmd COM5 EXACT-MODEL-VERSION.factory.bin
+Substitute the actual COM port and factory filename. This legacy helper does
+not verify the physical model or layout. Prefer the desktop app.
+If a firmware ZIP omits this helper, use the app with its common JSON.
+
+Do not use flash-windows.cmd with .app.bin for routine updates. That older
+helper writes app0 at 0x10000, which may not be the selected slot after OTA.
+Use the app's slot-aware USB update or OTA Update instead.
+
+Keep power connected until verification completes. Press RESET, verify the
+version on PROGRAM, enter HID and reconnect. Blank-board recovery can also use
+BOOT held during RESET; release BOOT before trying to start normal firmware.

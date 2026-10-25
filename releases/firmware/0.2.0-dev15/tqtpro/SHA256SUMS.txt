@@ -1,0 +1,2 @@
+13dbfe8a26c85042cc650560a5b7241ff4e85cdb45621c0015ddb207d22558c0  WITS-Keyboard-0.2.0-dev15.factory.bin
+f9ac43ade297edf435dc44e1919a3b38add56a2b8e5f92fa8e42828681861bc2  WITS-Keyboard-0.2.0-dev15.app.bin

@@ -535,7 +535,7 @@ class MainWindow(QMainWindow):
         # Special keys sit beside the text box, using the width of the wide panel.
         middle = QHBoxLayout()
         middle.addWidget(editor_group, 3)
-        layout.addLayout(middle, 1)
+        layout.addLayout(middle)
 
         key_group = QGroupBox("Special keys — exactly one target")
         key_layout = QGridLayout(key_group)
@@ -567,7 +567,9 @@ class MainWindow(QMainWindow):
         secure_attention.clicked.connect(self._secure_attention)
         key_layout.addWidget(secure_attention, 4, 0, 1, 3)
         self.key_buttons.append(secure_attention)
-        middle.addWidget(key_group, 2, Qt.AlignmentFlag.AlignTop)
+        middle.addWidget(key_group, 2)
+        # Match the text box to the special keys' height; spare space goes below.
+        editor_group.setMaximumHeight(key_group.sizeHint().height())
 
         log_group = QGroupBox("Event log — metadata only")
         log_layout = QVBoxLayout(log_group)
@@ -578,6 +580,7 @@ class MainWindow(QMainWindow):
         clear_log.clicked.connect(self.event_log.clear)
         log_layout.addWidget(clear_log)
         layout.addWidget(log_group)
+        layout.addStretch(1)
         return panel
 
     def _saved_splitter_sizes(self) -> list[int]:

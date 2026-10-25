@@ -81,6 +81,15 @@ class DeviceListLayoutTests(unittest.TestCase):
         self.window._save_splitter_sizes()
         self.assertEqual(self.window._saved_splitter_sizes(), self.window.main_splitter.sizes())
 
+    def test_text_box_is_as_tall_as_the_special_keys(self):
+        window = self.window
+        window.resize(1180, 940)
+        window.show()
+        self.app.processEvents()
+        editor_group = window.text_editor.parentWidget()
+        key_group = window.key_buttons[0].parentWidget()
+        self.assertLessEqual(abs(editor_group.height() - key_group.height()), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

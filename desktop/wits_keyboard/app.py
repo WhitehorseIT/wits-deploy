@@ -443,9 +443,9 @@ class MainWindow(QMainWindow):
 
         note = QLabel(
             "Highlight rows for Connect/Disconnect/Ping/Identify; the Target checkboxes "
-            "independently control where text and keys are sent. To change SD access: "
-            "disarm, safely eject the USB drive on the target computer, then refresh "
-            "Storage status and choose its access mode."
+            "independently control where text and keys are sent. Disarm before changing SD "
+            "access. Read-only to read/write works straight away; to go back to read-only, "
+            "safely eject the USB drive on the target computer, then refresh Storage status."
         )
         note.setWordWrap(True)
         note.setStyleSheet("color: #68727d;")
@@ -806,11 +806,13 @@ class MainWindow(QMainWindow):
         connected = bool(state.get("connected") and state.get("authenticated"))
         info = self.board_information.get(address, {}) if connected else {}
         self.storage_refresh_button.setEnabled(connected)
-        can_mount = bool(connected and info.get("supported") and info.get("present")
-                         and not info.get("exported") and not info.get("error")
-                         and not state.get("armed") and not state.get("typing"))
-        self.storage_readonly_button.setEnabled(can_mount)
-        self.storage_writable_button.setEnabled(can_mount)
+        can_change = bool(connected and info.get("supported") and info.get("present")
+                          and not info.get("error") and not state.get("armed") and not state.get("typing"))
+        exported, writable = bool(info.get("exported")), bool(info.get("writable"))
+        # Read-only to read/write works on a live export; every other change needs the
+        # drive ejected on the computer first.
+        self.storage_readonly_button.setEnabled(can_change and not exported)
+        self.storage_writable_button.setEnabled(can_change and (not exported or not writable))
         if not connected:
             message = "Storage: highlight one connected board"
         elif not info:

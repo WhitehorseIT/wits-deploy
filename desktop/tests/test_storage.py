@@ -78,11 +78,37 @@ class StorageSessionTests(unittest.IsolatedAsyncioTestCase):
         await self.session.storage_mode(False)
         self.assertIn("read-only", self.events[-1][2]["message"])
 
-    async def test_exported_drive_requires_eject_without_sending_command(self):
-        self.session.client.read_gatt_char.return_value = info(exported=True, ejected=False)
-        with self.assertRaisesRegex(BoardError, "safely eject"):
-            await self.session.storage_mode(True)
+    async def test_live_read_only_export_switches_to_writable_without_an_eject(self):
+        self.session.client.read_gatt_char.side_effect = [
+            info(exported=True, ejected=False, writable=False),   # before the command
+            info(exported=True, ejected=False, writable=True),    # verification reads
+            info(exported=True, ejected=False, writable=True),
+        ]
+        await self.session.storage_mode(True)
+        frame, sequence = self.session._request.call_args.args
+        self.assertEqual(frame, protocol.storage_mode_frame(sequence, True))
+        self.assertIn("re-detects the drive", self.events[-1][2]["message"])
+
+    async def test_every_other_change_on_a_live_export_still_requires_an_eject(self):
+        cases = [
+            (dict(exported=True, ejected=False, writable=False), False),  # read-only to read-only
+            (dict(exported=True, ejected=False, writable=True), False),   # read/write to read-only
+            (dict(exported=True, ejected=False, writable=True), True),    # read/write to read/write
+        ]
+        for state, allow in cases:
+            with self.subTest(state=state, allow=allow):
+                self.session.client.read_gatt_char.return_value = info(**state)
+                with self.assertRaisesRegex(BoardError, "safely eject"):
+                    await self.session.storage_mode(allow)
         self.session._request.assert_not_called()
+
+    async def test_live_switch_is_not_reported_if_the_board_did_not_confirm_writes(self):
+        self.session.client.read_gatt_char.side_effect = [
+            info(exported=True, ejected=False, writable=False),
+            info(exported=True, ejected=False, writable=False),
+        ]
+        with self.assertRaisesRegex(BoardError, "did not confirm"):
+            await self.session.storage_mode(True)
 
     async def test_unsupported_missing_card_and_io_error_never_send_command(self):
         for changes in [dict(supported=False), dict(present=False), dict(error=True)]:

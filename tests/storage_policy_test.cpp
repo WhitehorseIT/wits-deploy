@@ -13,7 +13,16 @@ constexpr bool policyTransitions() {
   p.present = true;
   p.exported = true; // Initial export is read-only.
   if (!p.canRead() || p.canWrite()) return false;
-  if (p.configure(true) != Result::EjectFirst || p.writable) return false;
+  // Read-only to read/write is allowed on a live export; the board then needs an eject
+  // before any further change, and read-only requests are still refused.
+  Policy live = p;
+  if (live.configure(false) != Result::EjectFirst || live.writable || live.needsEject) return false;
+  if (live.configure(true) != Result::Ok || !live.canWrite() || !live.needsEject || live.ejected) return false;
+  if (!live.exported || live.configure(true) != Result::EjectFirst || live.configure(false) != Result::EjectFirst) return false;
+  if (!live.canWrite() || !live.needsEject) return false;
+  live.eject();
+  if (live.canRead() || live.canWrite() || live.needsEject || !live.ejected) return false;
+  if (live.configure(false) != Result::Ok || live.canWrite() || !live.canRead()) return false;
   p.eject();
   if (p.canRead() || p.canWrite() || !p.ejected) return false;
   if (p.configure(true) != Result::Ok || !p.canWrite() || p.ejected) return false;

@@ -24,6 +24,12 @@ uint64_t capacityBytes = 0;
 uint32_t lastEjectAt = 0;
 bool stopping = false;
 constexpr uint32_t EJECT_SETTLE_MS = 1500;
+// Switching a live read-only export to read/write: the drive is withdrawn for this
+// long so the host notices, drops its read-only view and re-reads the volume.
+// Hosts poll removable media about every 2 seconds, so a shorter gap can be missed.
+constexpr uint32_t REINSERT_GAP_MS = 3500;
+bool reinsertPending = false;  // guarded by stateMux
+uint32_t reinsertAt = 0;
 // DMA-capable internal RAM for unaligned USB requests and partial sectors.
 DMA_ATTR uint8_t ioBuffer[IO_BUFFER_BYTES];
 uint32_t readRequests = 0, writeRequests = 0, readBytes = 0, writeBytes = 0;
@@ -40,6 +46,7 @@ Policy readPolicy() {
 void failIo() {
   portENTER_CRITICAL(&stateMux);
   policy.fail();
+  reinsertPending = false;
   ++ioErrors;
   ++totalStats.errors;
   portEXIT_CRITICAL(&stateMux);
@@ -159,6 +166,7 @@ bool startStop(uint8_t power, bool start, bool loadEject) {
     // Host's explicit eject. Never grant writes from a host load command.
     portENTER_CRITICAL(&stateMux);
     policy.eject();
+    reinsertPending = false;
     lastEjectAt = millis();
     portEXIT_CRITICAL(&stateMux);
     msc->mediaPresent(false);
@@ -250,14 +258,25 @@ Result configure(bool allowWrites) {
     xSemaphoreGive(ioMutex);
     return Result::Busy;
   }
+  bool liveExport = policy.exported;
   Result result = policy.configure(allowWrites);
+  bool upgradeInPlace = result == Result::Ok && liveExport;
+  if (upgradeInPlace) {
+    reinsertPending = true;
+    reinsertAt = millis() + REINSERT_GAP_MS;
+  }
   portEXIT_CRITICAL(&stateMux);
-  if (result == Result::Ok) {
+  if (upgradeInPlace) {
+    // Withdraw the drive now; loop() presents it again, writable, after the gap.
+    // The BLE callback that got us here returns immediately.
+    msc->mediaPresent(false);
+  } else if (result == Result::Ok) {
     msc->isWritable(policy.writable);
     msc->mediaPresent(true);
   }
   xSemaphoreGive(ioMutex);
-  if (result == Result::Ok) StartupTrace::mark(allowWrites ? "SD remounted read/write" : "SD remounted read-only");
+  if (result == Result::Ok) StartupTrace::mark(upgradeInPlace ? "SD switching to read/write in place"
+      : allowWrites ? "SD remounted read/write" : "SD remounted read-only");
   return result;
 }
 
@@ -272,6 +291,7 @@ bool prepareRestart() {
   }
   stopping = true;
   policy.exported = false;
+  reinsertPending = false;
   portEXIT_CRITICAL(&stateMux);
   msc->mediaPresent(false);
   xSemaphoreGive(ioMutex);
@@ -287,6 +307,30 @@ Snapshot snapshot() {
 
 void loop() {
   uint32_t now = millis();
+  bool reinsertDue = false;
+  portENTER_CRITICAL(&stateMux);
+  if (reinsertPending && static_cast<int32_t>(now - reinsertAt) >= 0) {
+    reinsertDue = true;
+    reinsertPending = false;
+  }
+  portEXIT_CRITICAL(&stateMux);
+  if (reinsertDue) {
+    if (ioMutex && xSemaphoreTake(ioMutex, 0) == pdTRUE) {
+      Policy state = readPolicy();
+      if (state.exported && !state.error) {
+        msc->isWritable(state.writable);
+        msc->mediaPresent(true);
+        StartupTrace::mark("SD presented again after in-place switch");
+      }
+      xSemaphoreGive(ioMutex);
+    } else {
+      // The card is busy; try again shortly rather than leave the drive withdrawn.
+      portENTER_CRITICAL(&stateMux);
+      reinsertPending = true;
+      reinsertAt = now + 100;
+      portEXIT_CRITICAL(&stateMux);
+    }
+  }
   if (now - lastStatsAt < 5000) return;
   uint32_t reads, writes, readCount, writeCount, errors, maximum;
   portENTER_CRITICAL(&stateMux);

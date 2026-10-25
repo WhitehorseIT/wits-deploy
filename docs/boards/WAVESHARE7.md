@@ -102,14 +102,18 @@ checkboxes. Storage status reports the board firmware version, card capacity
 and access mode. T-QT Pro boards report unsupported; older firmware has no
 optional information characteristic but still works as a keyboard.
 
-To enable writes:
+To enable writes (firmware 0.2.0-dev15 and newer):
 
 1. Disarm the board.
-2. Safely eject the SD drive using the deployment PC's operating system.
-3. Click Storage status. Expect the board to report ejected.
-4. Click Mount read/write. The same drive should reappear writable.
+2. Click Mount read/write. The board briefly withdraws the drive, then presents
+   it again writable, so the computer re-detects it a few seconds later. No eject
+   is needed, because a read-only drive holds no unwritten data.
 
-To restore read-only access, safely eject again, refresh and Mount read-only.
+With older firmware, safely eject the SD drive on the deployment PC first,
+click Storage status (the board reports ejected), then click Mount read/write.
+
+To restore read-only access, safely eject first (a writable drive may hold
+unwritten data), refresh and click Mount read-only.
 No automatic filesystem format or local filesystem mount occurs. BLE is the
 control path; copy installer files through USB or a separate card reader.
 

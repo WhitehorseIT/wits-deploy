@@ -80,7 +80,10 @@ Dev13 ties a write grant to the USB export: app closure, BLE disconnect or
 reconnect, and pairing/bond changes retain R/W until confirmed host safe eject.
 The old BLE-coupled revocation interrupted a real copy reported by the user.
 A timer cannot prove host caches are flushed. Mode changes still require eject,
-and reset starts read-only. Keyboard disarming on BLE loss remains immediate.
+except read-only to read/write on a live export (dev15): a read-only export holds
+no unwritten host data, so the board withdraws the drive for about 3.5 seconds on
+a timer, presents it again writable, and the host re-reads it. Read/write to
+read-only, and repeating a mode, still require a host eject. Reset starts read-only. Keyboard disarming on BLE loss remains immediate.
 Post-fix copying across disconnect/reconnect needs physical validation.
 
 Use USB/the card reader for bulk installer provisioning initially; BLE remains

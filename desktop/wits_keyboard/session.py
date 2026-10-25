@@ -413,8 +413,12 @@ class BoardSession:
                 raise BoardError(protocol.STATUS_MESSAGES[11])
             if not info.present or info.error:
                 raise BoardError(protocol.STATUS_MESSAGES[12])
-            if info.exported:
+            # Read-only to read/write is the one change allowed on a live export: a
+            # read-only export holds no unwritten host data. Anything else needs a
+            # host eject first (read/write could discard dirty cached writes).
+            if info.exported and not (allow_writes and not info.writable):
                 raise BoardError(protocol.STATUS_MESSAGES[13])
+            in_place = info.exported
             sequence = self.sequences.take()
             self._emit("operation", message="Remounting USB drive; verifying access mode…")
             await self._request(protocol.storage_mode_frame(sequence, allow_writes), sequence)
@@ -432,9 +436,12 @@ class BoardSession:
                     )
                 if result.writable != allow_writes:
                     raise BoardError("The board did not confirm the requested storage access mode")
-            self._emit("operation", message=(
-                "USB drive remounted read/write" if allow_writes else "USB drive remounted read-only"
-            ))
+            if in_place:
+                message = ("USB drive switched to read/write. The board briefly withdraws it, so your "
+                           "computer re-detects the drive in a few seconds")
+            else:
+                message = "USB drive remounted read/write" if allow_writes else "USB drive remounted read-only"
+            self._emit("operation", message=message)
 
     async def update_firmware(self, image, progress, cancelled=None) -> None:
         from .firmware_update import FirmwareRelease, upload_image

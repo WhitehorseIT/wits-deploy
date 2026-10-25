@@ -84,8 +84,14 @@ class DeliveryTests(unittest.TestCase):
         })
         self.assertTrue(self.window.storage_writable_button.isEnabled())
         self.assertIn("0.2.0-dev", self.window.storage_status_label.text())
-        self.window._board_event("A", "board_info", {**value, "exported": True})
+        # A live read-only export can be switched to read/write at once, but not re-mounted
+        # read-only; a live read/write export needs the host eject for either change.
+        self.window._board_event("A", "board_info", {**value, "exported": True, "ejected": False})
+        self.assertTrue(self.window.storage_writable_button.isEnabled())
+        self.assertFalse(self.window.storage_readonly_button.isEnabled())
+        self.window._board_event("A", "board_info", {**value, "exported": True, "ejected": False, "writable": True})
         self.assertFalse(self.window.storage_writable_button.isEnabled())
+        self.assertFalse(self.window.storage_readonly_button.isEnabled())
         self.window._board_event("A", "board_info", {**value, "supported": False})
         self.assertFalse(self.window.storage_readonly_button.isEnabled())
         self.window._board_event("A", "board_info", value)

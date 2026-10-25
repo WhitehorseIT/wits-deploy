@@ -1,0 +1,39 @@
+{
+  "schema": 2,
+  "firmware": "0.2.0-dev14",
+  "images": {
+    "tqtpro": {
+      "chip": "esp32s3",
+      "filename": "tqtpro/WITS-Keyboard-0.2.0-dev14.app.bin",
+      "size": 891296,
+      "sha256": "6f7b0cd82028e17a548cdb715f892e79108cf056d7e497529ae9c0f46c5cc8a6",
+      "factory": {
+        "filename": "tqtpro/WITS-Keyboard-0.2.0-dev14.factory.bin",
+        "size": 956832,
+        "sha256": "d623f8689cfef7a26e8001cd8ca7c31bb3acbe089a3cd4259ac6ccce0cad316b"
+      }
+    },
+    "waveshare7": {
+      "chip": "esp32s3",
+      "filename": "waveshare7/WITS-Keyboard-Waveshare7-0.2.0-dev14.app.bin",
+      "size": 979568,
+      "sha256": "ef4ed3164f44371969a90d7d3bc6c5ce5cf55d5a17983e56bafd9ade7d2a98ac",
+      "factory": {
+        "filename": "waveshare7/WITS-Keyboard-Waveshare7-0.2.0-dev14.factory.bin",
+        "size": 1045104,
+        "sha256": "62ef07b65083c4fade295ef61f0556dedcbc39b1c88542ef2c869e610a0e9c29"
+      }
+    },
+    "waveshare147": {
+      "chip": "esp32s3",
+      "filename": "waveshare147/WITS-Keyboard-Waveshare147-0.2.0-dev14.app.bin",
+      "size": 1006048,
+      "sha256": "c262a7883be322e431ee9d27a07a3ee43067d87d5a572a9b6235128dc2eca69e",
+      "factory": {
+        "filename": "waveshare147/WITS-Keyboard-Waveshare147-0.2.0-dev14.factory.bin",
+        "size": 1071584,
+        "sha256": "96adff55369f9286a440d2248775809bc6e7f8165b0796d9bf44a8c2dd348635"
+      }
+    }
+  }
+}

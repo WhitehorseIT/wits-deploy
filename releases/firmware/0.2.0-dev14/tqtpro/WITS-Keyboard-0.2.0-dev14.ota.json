@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "board": "tqtpro",
+  "chip": "esp32s3",
+  "firmware": "0.2.0-dev14",
+  "filename": "WITS-Keyboard-0.2.0-dev14.app.bin",
+  "size": 891296,
+  "sha256": "6f7b0cd82028e17a548cdb715f892e79108cf056d7e497529ae9c0f46c5cc8a6"
+}

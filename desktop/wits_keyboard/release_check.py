@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from . import __version__
 
-RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases/latest"
+RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases?per_page=30"
 DISABLE_ENV = "WITS_DEPLOY_NO_UPDATE_CHECK"
 CRITICAL_LINE = re.compile(r"^\s*critical-below\s*:\s*v?([0-9A-Za-z][0-9A-Za-z.\-]*)\s*$", re.I | re.M)
 _STAGE = {"dev": 0, "rc": 1}
@@ -62,15 +62,23 @@ def from_release_json(data: dict) -> Latest | None:
     return Latest(tag, match.group(1) if match else None)
 
 
+def from_release_list(releases) -> Latest | None:
+    """Newest published release, prereleases included (the project is still on test builds)."""
+    if not isinstance(releases, list):
+        return None
+    return newest(*(from_release_json(r) for r in releases
+                    if isinstance(r, dict) and not r.get("draft")))
+
+
 def fetch_latest(url: str = RELEASES_URL, timeout: float = 6.0) -> Latest | None:
-    """Ask GitHub for the newest release. Sends no identifying data; None on any failure."""
+    """Ask GitHub for the newest published release. Sends no identifying data; None on any failure."""
     if os.environ.get(DISABLE_ENV):
         return None
     request = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json", "User-Agent": f"WITS-Deploy/{__version__}"})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return from_release_json(json.loads(response.read(1_000_000)))
+            return from_release_list(json.loads(response.read(2_000_000)))
     except Exception:
         return None
 

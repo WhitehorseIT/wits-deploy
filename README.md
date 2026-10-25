@@ -123,7 +123,7 @@ The 1.47-inch board uses its single USB-C connector for both roles.
 - [Waveshare 7-inch setup](docs/boards/WAVESHARE7.md)
 - [Waveshare 1.47-inch first flash](docs/boards/WAVESHARE147.md)
 - [Storage design and hardware roadmap](docs/STORAGE-PLAN.md)
-- [Web controller deployment](deploy/README.md)
+- [Roadmap](docs/ROADMAP.md)
 
 Git tracks source, documentation, release manifests, and checksums. Generated
 binaries, ZIPs, environments, and runtime logs are excluded. A source clone

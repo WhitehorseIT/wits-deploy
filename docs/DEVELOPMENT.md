@@ -8,8 +8,7 @@ Run the commands below from the repository root unless stated otherwise.
 | --- | --- |
 | `src/` | Shared firmware and board adapters |
 | `desktop/` | Python controller, setup scripts, and app tests |
-| `web/` | Browser-based keyboard controller |
-| `deploy/` | Static hosting and Cloudflare Tunnel configuration |
+| `web/` | Early browser (Web Bluetooth) keyboard controller prototype; see the [roadmap](ROADMAP.md) |
 | `scripts/` | Build, package, flash, and diagnostic tools |
 | `tests/` | Firmware compile-time checks |
 | `docs/` | Guides and hardware plans |
@@ -109,7 +108,6 @@ something for existing users:
 | Saved-settings key (`QSettings("Whitehorse IT Solutions", "WITS Keyboard")`) | Renaming it would forget every user's saved boards, names and delays |
 | Python package `wits_keyboard` and the log file `wits-keyboard-debug.log` | Internal names with no user-facing effect; renaming adds churn without benefit |
 | Pairing agent path `/com/whitehorseit/WitsKeyboard/PairingAgent` | Internal D-Bus identifier |
-| `deploy/` service and directory names (`wits-keyboard`) | They name a live hosted deployment; renaming means migrating the server |
 | `scripts/package-stable-release.py` | Legacy promotion of the 0.1.x T-QT Pro releases, which keep their names |
 
 See the [release layout](../releases/README.md) and

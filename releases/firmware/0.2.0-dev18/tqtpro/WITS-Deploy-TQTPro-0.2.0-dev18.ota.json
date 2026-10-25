@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "board": "tqtpro",
+  "chip": "esp32s3",
+  "firmware": "0.2.0-dev18",
+  "filename": "WITS-Deploy-TQTPro-0.2.0-dev18.app.bin",
+  "size": 892208,
+  "sha256": "8b96f5a8a000769e8ebd95858fdfeb06478d6d63363a12c207828f3548672b99"
+}

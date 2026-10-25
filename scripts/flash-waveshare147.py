@@ -13,18 +13,22 @@ from wits_keyboard.usb_flash import SerialFlasher
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", help="bootloader port, e.g. /dev/ttyACM0 or COM5")
-    parser.add_argument("--version", default="0.2.0-dev17")
+    parser.add_argument("--version", default="0.2.0-dev18")
     parser.add_argument("--update", action="store_true",
                         help="preserve settings by updating the inactive slot of an existing WITS install")
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z.-]*", args.version):
         parser.error("invalid firmware version")
     folder = PROJECT / "releases" / "firmware" / args.version / "waveshare147"
-    manifest = folder / f"WITS-Keyboard-Waveshare147-{args.version}.ota.json"
+    manifest = next((folder / name for name in (f"WITS-Deploy-Waveshare147-{args.version}.ota.json",
+                                                f"WITS-Keyboard-Waveshare147-{args.version}.ota.json")
+                     if (folder / name).is_file()), folder / f"WITS-Deploy-Waveshare147-{args.version}.ota.json")
     # The individual descriptor also needs the factory descriptor for a safe
     # working-board partition-table comparison. Prefer the complete catalog.
-    catalog = folder.parent / f"WITS-Keyboard-Release-{args.version}.ota.json"
-    if catalog.is_file():
+    catalog = next((folder.parent / name for name in (f"WITS-Deploy-Release-{args.version}.ota.json",
+                                                      f"WITS-Keyboard-Release-{args.version}.ota.json")
+                    if (folder.parent / name).is_file()), None)
+    if catalog is not None:
         manifest = catalog
     else:
         parser.error("complete release manifest is missing; build all targets first")

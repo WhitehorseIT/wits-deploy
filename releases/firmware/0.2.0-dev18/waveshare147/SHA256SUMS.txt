@@ -1,0 +1,2 @@
+52c310fd5d843c61b786677bd91d5040b63f470d0a7efcdce73810b7b6c81b9c  WITS-Deploy-Waveshare147-0.2.0-dev18.factory.bin
+9953148aa18c0118d145a53e1e3c192720fc72516586e1b63ba63fd06da99546  WITS-Deploy-Waveshare147-0.2.0-dev18.app.bin

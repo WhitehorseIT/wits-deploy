@@ -1,0 +1,39 @@
+{
+  "schema": 2,
+  "firmware": "0.2.0-dev18",
+  "images": {
+    "tqtpro": {
+      "chip": "esp32s3",
+      "filename": "tqtpro/WITS-Deploy-TQTPro-0.2.0-dev18.app.bin",
+      "size": 892208,
+      "sha256": "8b96f5a8a000769e8ebd95858fdfeb06478d6d63363a12c207828f3548672b99",
+      "factory": {
+        "filename": "tqtpro/WITS-Deploy-TQTPro-0.2.0-dev18.factory.bin",
+        "size": 957744,
+        "sha256": "a9886b7e60eee9eabb8728677a0fce87053064681427f366499af8bf25a12d5a"
+      }
+    },
+    "waveshare7": {
+      "chip": "esp32s3",
+      "filename": "waveshare7/WITS-Deploy-Waveshare7-0.2.0-dev18.app.bin",
+      "size": 986208,
+      "sha256": "803668a716a2190bea553bc7fa50db3630a1d20d9b5b213d7487ed244a294617",
+      "factory": {
+        "filename": "waveshare7/WITS-Deploy-Waveshare7-0.2.0-dev18.factory.bin",
+        "size": 1051744,
+        "sha256": "89ea6da5443737c7b65cd5fa47f5740c6d1f05a5fb50c8020138d1117eee44fe"
+      }
+    },
+    "waveshare147": {
+      "chip": "esp32s3",
+      "filename": "waveshare147/WITS-Deploy-Waveshare147-0.2.0-dev18.app.bin",
+      "size": 1012624,
+      "sha256": "9953148aa18c0118d145a53e1e3c192720fc72516586e1b63ba63fd06da99546",
+      "factory": {
+        "filename": "waveshare147/WITS-Deploy-Waveshare147-0.2.0-dev18.factory.bin",
+        "size": 1078160,
+        "sha256": "52c310fd5d843c61b786677bd91d5040b63f470d0a7efcdce73810b7b6c81b9c"
+      }
+    }
+  }
+}

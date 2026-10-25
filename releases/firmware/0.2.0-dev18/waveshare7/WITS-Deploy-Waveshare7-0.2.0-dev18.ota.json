@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "board": "waveshare7",
+  "chip": "esp32s3",
+  "firmware": "0.2.0-dev18",
+  "filename": "WITS-Deploy-Waveshare7-0.2.0-dev18.app.bin",
+  "size": 986208,
+  "sha256": "803668a716a2190bea553bc7fa50db3630a1d20d9b5b213d7487ed244a294617"
+}

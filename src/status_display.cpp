@@ -1,4 +1,5 @@
 #include "status_display.h"
+#include "text_fit.h"
 
 #include "ble_transport.h"
 #include "firmware_version.h"
@@ -68,6 +69,11 @@ void centeredText(const char *text,
                   int y,
                   uint8_t size,
                   uint16_t color) {
+  // Shrink text that would run off the 128-pixel screen, and keep it centred in
+  // the vertical band the larger size would have used.
+  uint8_t requested = size;
+  size = TextFit::fitSize(strlen(text), requested, DISPLAY_WIDTH);
+  y += (8 * (requested - size)) / 2;
   int width = static_cast<int>(strlen(text)) * 6 * size;
   int x = max(0, (DISPLAY_WIDTH - width) / 2);
   gfx->setTextSize(size);
@@ -261,15 +267,23 @@ void render(ScreenState state, uint32_t pairingSeconds, const char *identifyLabe
       } else {
         centeredText("IDENTIFY", 10, 2, COLOR_WHITE);
         size_t length = strlen(identifyLabel);
-        if (length <= 10) {
-          centeredText(identifyLabel, 49, 2, COLOR_WHITE);
+        const size_t columns = TextFit::charsPerLine(1, DISPLAY_WIDTH);
+        if (length <= columns) {
+          centeredText(identifyLabel, 49, 2, COLOR_WHITE);  // shrinks to fit
         } else {
-          size_t columns = length <= 20 ? 10 : 16;
-          uint8_t size = length <= 20 ? 2 : 1;
-          char first[17] = {};
-          memcpy(first, identifyLabel, columns);
-          centeredText(first, 40, size, COLOR_WHITE);
-          centeredText(identifyLabel + columns, 62, size, COLOR_WHITE);
+          TextFit::Split split = TextFit::splitLabel(identifyLabel, length, columns);
+          char first[BleTransport::MAX_IDENTIFY_LABEL_BYTES + 1] = {};
+          char second[BleTransport::MAX_IDENTIFY_LABEL_BYTES + 1] = {};
+          memcpy(first, identifyLabel, split.firstLength);
+          size_t remaining = length - split.secondStart;
+          if (remaining <= columns) {
+            memcpy(second, identifyLabel + split.secondStart, remaining);
+          } else {
+            memcpy(second, identifyLabel + split.secondStart, columns - 2);
+            memcpy(second + columns - 2, "..", 2);  // too long even for two lines
+          }
+          centeredText(first, 41, 1, COLOR_WHITE);
+          centeredText(second, 55, 1, COLOR_WHITE);
         }
         char identity[12];
         snprintf(identity, sizeof(identity), "ID %s", BleTransport::deviceId());

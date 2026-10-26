@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from PySide6.QtCore import QEventLoop, QObject, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QCloseEvent, QColor
+from PySide6.QtGui import QBrush, QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -778,8 +778,12 @@ class MainWindow(QMainWindow):
             "AUTHENTICATING": ("#654b00", "#ffffff"),
             "CONNECTING": ("#654b00", "#ffffff"),
             "RE-PAIRING": ("#654b00", "#ffffff"),
+            "WATCHING": ("#1f4e79", "#ffffff"),
         }
-        background, foreground = colors.get(label.upper(), ("palette(alternate-base)", "palette(text)"))
+        # Every state gets an opaque badge; a theme-dependent fill can be see-through (it was on Windows),
+        # which let the cell's own text show underneath and overprint the badge.
+        background, foreground = colors.get(label.upper(), ("#4a4f57", "#ffffff"))
+        item.setForeground(2, QBrush(QColor(0, 0, 0, 0)))  # the badge draws the state; hide the cell's own text
         badge.setStyleSheet(
             f"background-color: {background}; color: {foreground}; "
             "font-weight: 700; padding: 4px 6px; border-radius: 4px; "

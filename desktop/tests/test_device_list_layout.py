@@ -62,6 +62,16 @@ class DeviceListLayoutTests(unittest.TestCase):
         self.window._board_event("A", "board_info", {"firmware": "0.2.0-dev18", "board": "tqtpro"})
         self.assertEqual(self.window.items["A"].text(FIRMWARE), "0.2.0-dev18")
 
+    def test_every_state_gets_an_opaque_badge_and_the_cell_text_stays_hidden(self):
+        self.window._add_or_update_device(DiscoveredBoard("A", "Board A"))
+        for label in ("Watching", "Offline", "Discovered", "DISARMED", "Something new"):
+            self.window._set_board_status("A", label)
+            item = self.window.items["A"]
+            badge = self.window.device_tree.itemWidget(item, STATE)
+            self.assertEqual(item.text(STATE), label)                          # logic still reads the text
+            self.assertEqual(item.foreground(STATE).color().alpha(), 0)       # but it is not drawn under the badge
+            self.assertNotIn("palette(", badge.styleSheet().split("border")[0])  # opaque colors, not theme lookups
+
     def test_boards_are_on_top_at_full_width_with_every_control_visible(self):
         window = self.window
         window.resize(1180, 940)

@@ -51,13 +51,34 @@ tests of flashing, boot behavior, or interrupted transfers.
 Releases are built, signed and published by GitHub Actions; see [release signing](RELEASE-SIGNING.md).
 
 1. Set the same version in `src/firmware_version.h`, `desktop/wits_keyboard/__init__.py` and
-   `desktop/packaging/firmware-release.txt`. Optionally add `docs/release-notes/<version>.md`.
-2. Run the checks: the desktop tests above, and `.venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147`.
-3. Push, optionally run the **Desktop binaries** workflow on the commit as a dry run, then push a tag
+   `desktop/packaging/firmware-release.txt`, and write `docs/release-notes/<version>.md` (with
+   `## What's new` and `## Files` sections).
+2. **Review the documentation** against what changed (checklist below).
+3. Run the checks: the desktop tests above (they include `scripts/check-docs.py`), and
+   `.venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147`.
+4. Push, optionally run the **Desktop binaries** workflow on the commit as a dry run, then push a tag
    `v<version>`. The **Release** workflow checks the tag against the version files, builds firmware and
    the Linux app, signs the manifest and creates the GitHub release.
 
 Firmware and app versions can differ in principle, but the release workflow uses one version for both.
+
+### Documentation checklist
+
+`scripts/check-docs.py` fails the tests and the Release workflow if the version files disagree, the
+current version has no release notes, a relative link or heading anchor is broken, a guide is not
+linked from another document, or the retired product name appears outside the naming notes. It cannot
+tell whether the text is *correct*, so for every release also read through:
+
+- `README.md`: features, install steps, status and limitations (move items between "tested" and "still
+  to test" as hardware testing happens).
+- `desktop/README.md`: anything that changed in the app's behavior or buttons.
+- `docs/OTA-UPDATES.md`, `docs/STORAGE.md` and the board guides in `docs/boards/` for firmware and
+  hardware changes.
+- `docs/DESKTOP-PACKAGING.md` and `docs/RELEASE-SIGNING.md` for packaging, update and signing changes.
+- `docs/ROADMAP.md`: move finished items to Done and record new plans.
+- `SECURITY.md`: add anything new to the in-scope list.
+- `desktop/packaging/README-NATIVE.txt` and `scripts/FLASHING-INSTRUCTIONS.txt`, which ship inside
+  packages.
 
 ### Building a release by hand
 

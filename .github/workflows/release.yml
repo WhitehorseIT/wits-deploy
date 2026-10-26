@@ -19,6 +19,8 @@ jobs:
           version=$(cat desktop/packaging/firmware-release.txt)
           app=$(python -c "import re;print(re.search(r'__version__ = \"(.*?)\"', open('desktop/wits_keyboard/__init__.py').read()).group(1))")
           [ "${GITHUB_REF_NAME}" = "v${version}" ] && [ "$app" = "$version" ] || { echo "Tag ${GITHUB_REF_NAME} does not match version ${version} / app ${app}" >&2; exit 1; }
+      - name: Check the documentation matches the code
+        run: python scripts/check-docs.py
       - name: Build all board images
         env:
           WITS_RELEASE_ROOT: ${{ github.workspace }}/build/firmware

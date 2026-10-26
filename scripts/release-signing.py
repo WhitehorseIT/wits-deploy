@@ -42,8 +42,8 @@ def manifest(args):
     for item in args.asset:
         label, _, name = item.partition("=")
         path = Path(name)
-        if label not in signing.ASSET_LABELS or not path.is_file():
-            sys.exit(f"Bad --asset {item!r}; labels are {sorted(signing.ASSET_LABELS)} and the file must exist.")
+        if not signing.ASSET_LABEL.fullmatch(label) or not path.is_file():
+            sys.exit(f"Bad --asset {item!r}; use LABEL=FILE with a lowercase label and an existing file.")
         assets[label] = {"name": path.name, "size": path.stat().st_size,
                          "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
     data = {"schema": 1, "product": "wits-deploy", "version": args.version,

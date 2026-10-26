@@ -10,7 +10,11 @@ Plans, not promises. Items move as hardware testing and releases dictate.
 
 ## Next
 
-- Self-update for Windows (run from Python) once Windows testing is done.
+- **Self-update for Windows (high priority).** The Windows app runs from Python, so an update would
+  download a signed source archive for the release, verify it against the signed manifest, unpack it
+  beside the running copy, reuse the existing Python environment unless the dependencies changed (then
+  build a new one), and restart into it, with the same rollback as Linux. This needs a source archive
+  added to each release's signed manifest and Windows testing first.
 - Optional automatic update checks with a quiet install window; today every update is confirmed.
 
 ## Platforms

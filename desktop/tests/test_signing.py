@@ -85,6 +85,14 @@ class SigningTests(unittest.TestCase):
             with self.assertRaises(SignatureError):
                 signing.verify_manifest(data, signing.sign(PRIVATE, data), [PUBLIC])
 
+    def test_unknown_asset_labels_are_tolerated_but_malformed_ones_are_not(self):
+        entry = {"name": "x.zip", "size": 10, "sha256": "0" * 64}
+        base = {"schema": 1, "product": "wits-deploy", "version": "0.2.0", "assets": {"firmware": entry}}
+        signing.validate_manifest({**base, "assets": {"firmware": entry, "windows-source": entry}})
+        for label in ("Bad Label", "../x", ""):
+            with self.assertRaises(SignatureError):
+                signing.validate_manifest({**base, "assets": {label: entry}})
+
     def test_public_key_derivation_and_check_file(self):
         self.assertEqual(signing.public_from_private(PRIVATE), PUBLIC)
         with tempfile.TemporaryDirectory() as d:

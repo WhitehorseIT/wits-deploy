@@ -56,3 +56,10 @@ modified. If the new version exits within 25 seconds of starting, a small wrappe
 version instead. After the new version has run for 15 seconds it moves the menu and sign-in shortcuts
 to itself, and notes where the previous copy is so you can delete it. Updates need a confirmation and
 are blocked while a board is armed or typing.
+
+## Manifest compatibility
+
+Installed apps validate every manifest they see, and one they reject is treated as unsigned (no
+critical flag, no downloads, no app update). From 0.2.0-dev22 apps ignore file labels they do not know,
+but older apps do not. A release may only add a new file label once the versions that matter can
+tolerate it, so never add one in a release that older apps must still update to.

@@ -12,7 +12,7 @@ from .release_check import parse_version
 
 MAX_MANIFEST_BYTES = 64 * 1024
 ASSET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,120}")
-ASSET_LABELS = {"firmware", "linux-x86_64"}
+ASSET_LABEL = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")  # unknown labels are tolerated so releases can add files later
 
 
 class SignatureError(ValueError):
@@ -83,7 +83,7 @@ def validate_manifest(data) -> dict:
     if not isinstance(assets, dict) or not assets:
         raise SignatureError("The manifest lists no files")
     for label, entry in assets.items():
-        if (label not in ASSET_LABELS or not isinstance(entry, dict)
+        if (not isinstance(label, str) or not ASSET_LABEL.fullmatch(label) or not isinstance(entry, dict)
                 or not isinstance(entry.get("name"), str) or not ASSET_NAME.fullmatch(entry["name"])
                 or type(entry.get("size")) is not int or not 0 < entry["size"] <= 1 << 30
                 or not isinstance(entry.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])):

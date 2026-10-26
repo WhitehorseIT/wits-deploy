@@ -633,9 +633,19 @@ class MainWindow(QMainWindow):
         self.event_log = QListWidget()
         self.event_log.setMaximumHeight(64)
         log_layout.addWidget(self.event_log)
+        log_buttons = QHBoxLayout()
+        copy_log = QPushButton("Copy log")
+        copy_log.setToolTip("Copy the events shown above to the clipboard")
+        copy_log.clicked.connect(self._copy_log)
+        save_logs = QPushButton("Save logs…")
+        save_logs.setToolTip("Save the events, the full debug logs and system details in one ZIP file, "
+                             "for sending to support")
+        save_logs.clicked.connect(self._save_logs)
         clear_log = QPushButton("Clear log")
         clear_log.clicked.connect(self.event_log.clear)
-        log_layout.addWidget(clear_log)
+        for button in (copy_log, save_logs, clear_log):
+            log_buttons.addWidget(button)
+        log_layout.addLayout(log_buttons)
         layout.addWidget(log_group)
         layout.addStretch(1)
         return panel
@@ -651,6 +661,28 @@ class MainWindow(QMainWindow):
 
     def _save_splitter_sizes(self, *_args) -> None:
         self.settings.setValue("ui/splitter_sizes", self.main_splitter.sizes())
+
+    def _event_lines(self) -> list[str]:
+        """The on-screen events, oldest first (the list itself shows the newest at the top)."""
+        return [self.event_log.item(i).text() for i in range(self.event_log.count() - 1, -1, -1)]
+
+    def _copy_log(self) -> None:
+        QApplication.clipboard().setText("\n".join(self._event_lines()))
+        self.status_label.setText(f"Copied {self.event_log.count()} log lines to the clipboard")
+
+    def _save_logs(self) -> None:
+        from . import log_bundle
+        from .file_choice import choose_save_path
+        path = choose_save_path(self, "Save logs", log_bundle.suggested_name(), settings=self.settings)
+        if not path:
+            return
+        try:
+            saved = log_bundle.build_bundle(path, self._event_lines(), LOG_PATH.parent)
+        except OSError as error:
+            QMessageBox.warning(self, "Could not save logs", f"The logs could not be saved: {error}")
+            return
+        self._log(f"Saved logs to {saved}")
+        self.status_label.setText(f"Saved logs to {saved}")
 
     def _log(self, message: str) -> None:
         logger.info("Event log: %s", message)  # the on-screen list is short-lived; keep a copy in the log file

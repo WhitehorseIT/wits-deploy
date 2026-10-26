@@ -132,6 +132,11 @@ immediately.
 
 ## Diagnostic log
 
+Below the board list, **Copy log** puts the on-screen events on the clipboard, **Save logs…** writes a single
+ZIP (the events, the full debug logs, any crash traces and the app and system versions) to a place you
+choose, and **Clear log** empties the list. Send the ZIP when you ask for help; GATT payloads, and so typed
+text and PINs, are never in the logs.
+
 Every launch writes debug-level application and Bluetooth diagnostics. The file rotates at 4 MiB and
 keeps three old copies; GATT write payloads are redacted, so typed text and passwords are not
 recorded. The exact path is shown near the top of the app.

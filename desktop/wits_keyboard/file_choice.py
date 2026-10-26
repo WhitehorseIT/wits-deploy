@@ -22,6 +22,7 @@ class PlainIcons(QAbstractFileIconProvider):
 
 
 REMEMBERED_KEY = "files/last_manifest_directory"
+REMEMBERED_SAVE_KEY = "files/last_saved_directory"
 
 
 def _responds(path: Path, timeout: float = 1.0) -> bool:
@@ -55,6 +56,25 @@ def choose_manifest(parent, title, settings=None):
         if dialog.exec() and dialog.selectedFiles():
             chosen = dialog.selectedFiles()[0]
             settings.setValue(REMEMBERED_KEY, str(Path(chosen).parent))
+            return chosen
+        return ""
+    finally:
+        dialog.deleteLater()
+
+
+def choose_save_path(parent, title, suggested_name, name_filter="ZIP archive (*.zip)", settings=None):
+    """Ask where to save a file, reopening in the last folder used. Returns the path or an empty string."""
+    settings = settings or QSettings("Whitehorse IT Solutions", "WITS Keyboard")
+    folder = start_directory(settings.value(REMEMBERED_SAVE_KEY))
+    dialog = QFileDialog(parent, title, str(folder / suggested_name), name_filter)
+    dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+    dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+    icons = PlainIcons()  # kept alive for the dialog's lifetime; see choose_manifest
+    dialog.setIconProvider(icons)
+    try:
+        if dialog.exec() and dialog.selectedFiles():
+            chosen = dialog.selectedFiles()[0]
+            settings.setValue(REMEMBERED_SAVE_KEY, str(Path(chosen).parent))
             return chosen
         return ""
     finally:

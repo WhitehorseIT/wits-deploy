@@ -38,7 +38,7 @@ heading. It is hidden for source installs and when the install folder is not wri
    If the new version fails before it has confirmed itself (step 4), the wrapper starts the previous one
    instead.
 4. After the new version has run for 15 seconds it confirms itself: it removes the update marker,
-   rebuilds KDE's menu cache and moves your menu and sign-in shortcuts to itself, and logs where the
+   rebuilds KDE's menu cache (`kbuildsycoca6 --noincremental`) and moves your menu and sign-in shortcuts to itself, and logs where the
    previous copy is. Delete that folder when you are satisfied. A crash after this is never rolled back.
 
 Updates need your confirmation and are blocked while a board is armed or typing. See

@@ -193,6 +193,17 @@ class LauncherRefreshTests(unittest.TestCase):
             rebuild.assert_called_once()
             self.assertFalse((root / "config" / "autostart" / launcher.FILENAME).exists())  # only existing ones
 
+    def test_the_kde_cache_is_rebuilt_in_full(self):
+        from wits_keyboard import launcher
+        with patch("shutil.which", return_value="/usr/bin/kbuildsycoca6"), \
+                patch("subprocess.run") as run:
+            launcher.refresh_menu_cache()
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0], ["/usr/bin/kbuildsycoca6", "--noincremental"])
+        with patch("shutil.which", return_value=None), patch("subprocess.run") as run:
+            launcher.refresh_menu_cache()  # no KDE tool installed: nothing to do, no error
+        run.assert_not_called()
+
     def test_nothing_is_rebuilt_when_there_are_no_shortcuts(self):
         from wits_keyboard import launcher
         with tempfile.TemporaryDirectory() as d:

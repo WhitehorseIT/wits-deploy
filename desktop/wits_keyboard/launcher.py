@@ -49,7 +49,8 @@ def refresh_menu_cache() -> None:
     tool = shutil.which("kbuildsycoca6") or shutil.which("kbuildsycoca5")
     if tool:
         try:
-            subprocess.run([tool], timeout=30, capture_output=True, check=False)
+            # A full rebuild: an incremental one can miss a changed Exec line and keep a stale path.
+            subprocess.run([tool, "--noincremental"], timeout=60, capture_output=True, check=False)
         except (OSError, subprocess.SubprocessError):
             pass  # best effort: the shortcut file itself is already updated
 

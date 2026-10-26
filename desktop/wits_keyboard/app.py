@@ -15,8 +15,8 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import Any
 
-from PySide6.QtCore import QEventLoop, QObject, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QCloseEvent, QColor
+from PySide6.QtCore import QEventLoop, QObject, QRectF, QSettings, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QBrush, QCloseEvent, QColor, QFontDatabase, QPainter, QPalette, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -77,6 +77,61 @@ class PendingDelivery:
     label: str
     deadline: float
     deliver: Callable[[], None]
+
+
+class MaskedPlainTextEdit(QPlainTextEdit):
+    """A text box that can hide what is typed behind one bullet per character. The real text stays in the box
+    (and is what gets sent); only the painting changes. Hidden text uses a fixed-width font so each bullet
+    sits exactly where its character is."""
+    MASK = "\u2022"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._masked = False
+        self._normal_font = self.font()
+        self._bullet_color = self.palette().color(QPalette.ColorRole.Text)
+
+    @property
+    def masked(self) -> bool:
+        return self._masked
+
+    def set_masked(self, hidden: bool) -> None:
+        self._masked = hidden
+        if hidden:
+            # Read the colors before the stylesheet below turns the widget's own text transparent.
+            self._bullet_color = QColor(self.palette().color(QPalette.ColorRole.Text))
+            self._bullet_color.setAlpha(255)
+            self._normal_font = self.font()
+            self.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+            self.setStyleSheet("QPlainTextEdit { color: transparent; selection-color: transparent; }")
+        else:
+            self.setFont(self._normal_font)
+            self.setStyleSheet("")
+        self.viewport().update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        super().paintEvent(event)
+        if not self._masked:
+            return
+        text = self.toPlainText()
+        if not text:
+            return
+        painter = QPainter(self.viewport())
+        painter.setPen(self._bullet_color)
+        painter.setFont(self.font())
+        cell = self.fontMetrics().horizontalAdvance("M")
+        visible = self.viewport().rect()
+        cursor = QTextCursor(self.document())
+        for position, character in enumerate(text):
+            if character == "\n":
+                continue
+            cursor.setPosition(position)
+            where = self.cursorRect(cursor)
+            if where.bottom() < visible.top() or where.top() > visible.bottom():
+                continue
+            painter.drawText(QRectF(where.x(), where.y(), cell, where.height()),
+                             Qt.AlignmentFlag.AlignCenter, self.MASK)
+        painter.end()
 
 
 SHUTDOWN_TIMEOUT_S = 3  # most time the app waits for boards to release their Bluetooth links on exit
@@ -569,7 +624,7 @@ class MainWindow(QMainWindow):
 
         editor_group = QGroupBox("Deployment text")
         editor_layout = QVBoxLayout(editor_group)
-        self.text_editor = QPlainTextEdit()
+        self.text_editor = MaskedPlainTextEdit()
         self.text_editor.setPlaceholderText("Paste a password, product key, or deployment text")
         self.text_editor.textChanged.connect(self._text_changed)
         self.text_editor.setMinimumHeight(90)
@@ -1258,12 +1313,7 @@ class MainWindow(QMainWindow):
         self._update_send_enabled()
 
     def _toggle_mask(self, hidden: bool) -> None:
-        if hidden:
-            self.text_editor.setStyleSheet(
-                "QPlainTextEdit { color: transparent; selection-color: transparent; }"
-            )
-        else:
-            self.text_editor.setStyleSheet("")
+        self.text_editor.set_masked(hidden)
 
     def _valid_targets(self, *, require_single: bool = False) -> list[str]:
         if self.pending_delivery is not None:

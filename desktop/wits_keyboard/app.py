@@ -88,6 +88,7 @@ class UiBridge(QObject):
     passkey_finished = Signal(str)
     management_finished = Signal(str, str)
     latest_release = Signal(object)  # (newest tag, signed release or None), or None when the check failed
+    update_aborted = Signal()  # the update could not start; restore Auto-connect
     update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
 
@@ -209,6 +210,7 @@ class MainWindow(QMainWindow):
         self.bridge.board_event.connect(self._board_event)
         self.bridge.operation_error.connect(self._operation_error)
         self.bridge.update_ready.connect(self._open_firmware_dialog)
+        self.bridge.update_aborted.connect(self._restore_auto_connect)
         self.bridge.latest_release.connect(self._latest_release_known)
         self.bridge.passkey_requested.connect(self._show_passkey_prompt)
         self.bridge.passkey_finished.connect(self._dismiss_passkey_prompt)
@@ -889,38 +891,48 @@ class MainWindow(QMainWindow):
         if not state.get("connected") or not state.get("authenticated") or state.get("armed") or state.get("typing"):
             self._operation_error(address, RuntimeError("Connect and disarm the selected board before updating"))
             return
-        others = [other for other, other_state in self.states.items()
-                  if other != address and other_state.get("connected") and other in self.items]
-        if others:
+        connected = [other for other, other_state in self.states.items()
+                     if other != address and other_state.get("connected") and other in self.items]
+        if connected:
             # Bluetooth shares airtime between connections: with several boards connected an
             # update measured 0.4 KB/s against 12 KB/s with one, so only one board stays connected.
-            names = ", ".join(self.items[other].text(1) for other in others)
+            names = ", ".join(self.items[other].text(1) for other in connected)
             answer = QMessageBox.question(
                 self, "Other boards are connected",
-                f"{names} {'is' if len(others) == 1 else 'are'} also connected. A Bluetooth update runs "
+                f"{names} {'is' if len(connected) == 1 else 'are'} also connected. A Bluetooth update runs "
                 "far slower (often more than 20 times slower) while other boards are connected.\n\n"
-                "Disconnect the other board(s) first? They stay disconnected until you click Connect.")
+                "Disconnect the other board(s) first? Auto-connect is switched off for every board during "
+                "the update and restored afterwards.")
             if answer != QMessageBox.StandardButton.Yes:
                 return
-            self._cancel_delivery_for(others, "Disconnected for a firmware update")
-            # Disconnecting alone is not enough: Auto-connect would reconnect them at once.
-            # Untick those boxes now and tick them again when the updater closes.
-            for other in others:
-                if self.items[other].checkState(4) == Qt.CheckState.Checked:
-                    self._auto_connect_restore.add(other)
-                    self.items[other].setCheckState(4, Qt.CheckState.Unchecked)
-            self.runner.submit(
-                self.controller.disconnect_many(others),
-                on_finished=lambda: self.bridge.update_ready.emit(address),  # runs off the interface thread
-                on_error=lambda error: self.bridge.operation_error.emit(address, safe_error(error)),
-                operation="disconnect other boards for update",
-            )
+            self._cancel_delivery_for(connected, "Disconnected for a firmware update")
+        # Auto-connect could otherwise (re)connect any ticked board mid-update, connected or not.
+        # Untick every ticked box now (the saved setting is restored when the updater closes).
+        others = [other for other in self.items if other != address]
+        for board in (address, *others):
+            if self.items[board].checkState(4) == Qt.CheckState.Checked:
+                self._auto_connect_restore.add(board)
+                self.items[board].setCheckState(4, Qt.CheckState.Unchecked)
+        if not others:
+            self._open_firmware_dialog(address)
             return
-        self._open_firmware_dialog(address)
+
+        def failed(error: Exception) -> None:
+            self.bridge.operation_error.emit(address, safe_error(error))
+            self.bridge.update_aborted.emit()  # runs off the interface thread
+
+        # Also cancels connection attempts that are still in progress.
+        self.runner.submit(
+            self.controller.disconnect_many(others),
+            on_success=lambda _result: self.bridge.update_ready.emit(address),
+            on_error=failed,
+            operation="disconnect other boards for update",
+        )
 
     def _open_firmware_dialog(self, address: str) -> None:
         from .firmware_dialog import FirmwareDialog
         if address not in self.items:
+            self._restore_auto_connect()
             return
         self._cancel_delivery("Firmware updater opened")
         try:

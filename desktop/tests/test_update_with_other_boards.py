@@ -32,12 +32,17 @@ class UpdateWithOtherBoardsTests(unittest.TestCase):
             item.start()
         self.window = MainWindow()
         self.submissions = []
+        self.fail_disconnect = False
 
         def submit(coroutine, on_success=None, on_error=None, *, operation="", on_finished=None):
             self.submissions.append((operation, dict(coroutine.cr_frame.f_locals)))
             coroutine.close()
+            if self.fail_disconnect and on_error:
+                on_error(RuntimeError("radio busy"))
+            elif on_success:
+                on_success(None)
             if on_finished:
-                on_finished()  # the real runner calls this when the coroutine finishes
+                on_finished()
 
         self.window.runner.submit.side_effect = submit
         for address in ("A", "B", "C"):
@@ -65,7 +70,8 @@ class UpdateWithOtherBoardsTests(unittest.TestCase):
         question.assert_not_called()
         self.dialog.assert_called_once()
         self.assertEqual(self.dialog.call_args.args[2], "A")
-        self.assertEqual(self.submissions, [])
+        # The boards that are not connected are still told to stand down (cancels in-flight attempts).
+        self.assertEqual(sorted(self.submissions[0][1]["addresses"]), ["B", "C"])
 
     def test_declining_keeps_the_other_boards_and_does_not_update(self):
         self.connect("A", "B")
@@ -102,12 +108,36 @@ class UpdateWithOtherBoardsTests(unittest.TestCase):
         self.dialog.side_effect = during_update
         with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
             self.window._update_firmware()
-        self.assertEqual(states["A"], Qt.CheckState.Checked)      # the updating board keeps its setting
+        self.assertEqual(states["A"], Qt.CheckState.Unchecked)    # every board is off during the update
         self.assertEqual(states["B"], Qt.CheckState.Unchecked)    # was ticked, off during the update
         self.assertEqual(states["C"], Qt.CheckState.Unchecked)    # never ticked, stays off
+        self.assertEqual(self.window.items["A"].checkState(4), Qt.CheckState.Checked)
         self.assertEqual(self.window.items["B"].checkState(4), Qt.CheckState.Checked)
         self.assertEqual(self.window.items["C"].checkState(4), Qt.CheckState.Unchecked)
         self.assertIn("B", self.window.auto_connect_preferences)
+
+    def test_ticked_boards_that_are_not_connected_are_switched_off_without_asking(self):
+        from PySide6.QtCore import Qt
+        self.connect("A")
+        self.window.items["B"].setCheckState(4, Qt.CheckState.Checked)  # saved, auto-connect on, offline
+        seen = {}
+        self.dialog.side_effect = lambda *a, **k: seen.update(B=self.window.items["B"].checkState(4)) or MagicMock()
+        with patch.object(QMessageBox, "question") as question:
+            self.window._update_firmware()
+        question.assert_not_called()
+        self.assertEqual(seen["B"], Qt.CheckState.Unchecked)
+        self.assertEqual(self.window.items["B"].checkState(4), Qt.CheckState.Checked)
+
+    def test_if_the_other_boards_cannot_be_disconnected_nothing_is_left_switched_off(self):
+        from PySide6.QtCore import Qt
+        self.connect("A", "B")
+        self.window.items["B"].setCheckState(4, Qt.CheckState.Checked)
+        self.fail_disconnect = True
+        self.window.bridge.operation_error.connect(lambda *_: None)
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+            self.window._update_firmware()
+        self.dialog.assert_not_called()
+        self.assertEqual(self.window.items["B"].checkState(4), Qt.CheckState.Checked)
 
     def test_a_disconnected_saved_board_does_not_count_as_connected(self):
         self.connect("A")

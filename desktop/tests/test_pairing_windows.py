@@ -182,13 +182,3 @@ class WindowsPairingTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class WindowsClientOptionTests(unittest.TestCase):
-    def test_windows_asks_for_a_fresh_service_list_and_other_systems_do_not(self):
-        from unittest.mock import patch
-        from wits_keyboard.session import BoardSession
-        with patch.object(sys, "platform", "win32"):
-            self.assertEqual(BoardSession._platform_client_options(), {"winrt": {"use_cached_services": False}})
-        with patch.object(sys, "platform", "linux"):
-            self.assertEqual(BoardSession._platform_client_options(), {})

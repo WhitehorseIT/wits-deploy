@@ -129,6 +129,57 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
                 await self.session.update_firmware(release, Mock())
             upload.assert_not_awaited()
 
+    async def test_windows_reconnects_once_when_the_service_list_is_incomplete(self):
+        calls = []
+
+        class FlakyClient(FakeClient):
+            async def start_notify(self, uuid, callback):
+                calls.append("start_notify")
+                if calls.count("start_notify") == 1:
+                    raise RuntimeError("Characteristic 7cb2a248 was not found!")
+                await super().start_notify(uuid, callback)
+
+            async def connect(self):
+                calls.append("connect")
+                await super().connect()
+
+            async def disconnect(self):
+                calls.append("disconnect")
+                await super().disconnect()
+
+        self.session.client_factory = FlakyClient
+        with patch("wits_keyboard.session.sys.platform", "win32"), \
+                patch("wits_keyboard.session.asyncio.sleep", AsyncMock()), \
+                patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)):
+            await self.session.connect(allow_pairing=False)
+        self.assertEqual(calls, ["connect", "start_notify", "disconnect", "connect", "start_notify"])
+        self.assertTrue(self.session.state.authenticated)
+        await self.session.disconnect()
+
+    async def test_windows_explains_a_service_list_that_stays_incomplete(self):
+        class BrokenClient(FakeClient):
+            async def start_notify(self, uuid, callback):
+                raise RuntimeError("Characteristic 7cb2a248 was not found!")
+
+        self.session.client_factory = BrokenClient
+        with patch("wits_keyboard.session.sys.platform", "win32"), \
+                patch("wits_keyboard.session.asyncio.sleep", AsyncMock()), \
+                patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)):
+            with self.assertRaisesRegex(BoardError, "Remove, then pair"):
+                await self.session.connect(allow_pairing=False)
+        self.assertFalse(self.session.state.connected)
+
+    async def test_other_systems_do_not_retry_a_missing_characteristic(self):
+        class BrokenClient(FakeClient):
+            async def start_notify(self, uuid, callback):
+                raise RuntimeError("Characteristic 7cb2a248 was not found!")
+
+        self.session.client_factory = BrokenClient
+        with patch("wits_keyboard.session.sys.platform", "linux"), \
+                patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)):
+            with self.assertRaisesRegex(RuntimeError, "not found"):
+                await self.session.connect(allow_pairing=False)
+
     async def test_connect_requests_pairing_and_pings(self):
         await self.session.connect()
         self.assertTrue(self.session.state.connected)

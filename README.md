@@ -29,7 +29,7 @@ provide MicroSD-backed USB storage.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | Supported, including MicroSD storage |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | Initial pairing and operation confirmed; storage/recovery tests pending |
 
-Current firmware/app source: **0.2.0-dev20** (test build); last fully verified release: **0.2.0-dev13**. Bluetooth OTA has been tested on
+Current firmware/app source: **0.2.0-dev21** (test build); last fully verified release: **0.2.0-dev13**. Bluetooth OTA has been tested on
 the T-QT Pro and 7-inch boards. Storage/OTA on the 1.47-inch board, USB slot-aware
 updates and interrupted-update recovery still need hardware validation.
 

@@ -35,9 +35,11 @@ heading. It is hidden for source installs and when the install folder is not wri
 2. It unpacks the archive beside the running copy, in the same parent folder (for example `~/Apps`),
    and renames it into place only when complete. The running copy is never modified.
 3. A small wrapper restarts the app into the new version after two seconds, so Bluetooth is released.
-   If the new version exits within 25 seconds of starting, the wrapper starts the previous one instead.
-4. After the new version has run for 15 seconds it moves your menu and sign-in shortcuts to itself and
-   logs where the previous copy is. Delete that folder when you are satisfied.
+   If the new version fails before it has confirmed itself (step 4), the wrapper starts the previous one
+   instead.
+4. After the new version has run for 15 seconds it confirms itself: it removes the update marker,
+   rebuilds KDE's menu cache and moves your menu and sign-in shortcuts to itself, and logs where the
+   previous copy is. Delete that folder when you are satisfied. A crash after this is never rolled back.
 
 Updates need your confirmation and are blocked while a board is armed or typing. See
 [release signing](RELEASE-SIGNING.md) for how releases are verified.

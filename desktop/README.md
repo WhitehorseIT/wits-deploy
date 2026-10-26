@@ -60,6 +60,15 @@ computer, or replacing a cleared bond, needs the board's physical pairing window
 A board's first ping must confirm authenticated state before it can send anything. GATT requests
 time out after ten seconds, and a disconnect ends a pending request immediately.
 
+## Removing a board
+
+Highlight a board that is not working and choose **Remove**. After you confirm, the app disconnects it,
+switches its Auto-connect off, removes it from the list and forgets its saved name, and removes its
+pairing from this computer: on Windows from the Bluetooth devices list as well, on Linux from BlueZ.
+It works even if the board is switched off. If the pairing cannot be removed automatically, the event log
+says so and you can remove it in the system's Bluetooth settings. The board itself is not changed; to use
+it again, open its pairing window and **Scan**.
+
 ## Automatic reconnect
 
 Tick **Auto-connect** for each saved board you want this computer to manage. It is saved separately

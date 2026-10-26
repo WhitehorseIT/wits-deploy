@@ -172,6 +172,48 @@ class KeyboardController:
         await self.connect(address)
         logger.info("Repair pairing complete address=%s", address)
 
+    async def remove(self, address: str) -> str:
+        """Forget a board: disconnect it, switch its Auto-connect off, remove its OS pairing (best effort) and drop
+        it from the saved list. Returns a note about what happened to the OS pairing."""
+        logger.info("Remove board address=%s", address)
+        self.reconnector.configure(address, False)
+        for tasks in (self.repair_tasks, self.connect_tasks):
+            task = tasks.pop(address, None)
+            if task is not None and not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        session = self.sessions.get(address)
+        if session is not None:
+            try:
+                await session.disconnect()
+            except Exception as error:
+                logger.info("Disconnect before remove failed address=%s error=%s", address, error)
+        try:
+            async with asyncio.timeout(25):
+                note = await self._forget_os_bond(address)
+        except Exception as error:
+            logger.info("OS pairing not removed address=%s error=%s", address, error)
+            note = ("The pairing could not be removed automatically; remove it in your system's "
+                    "Bluetooth settings if it is still listed.")
+        finally:
+            self.sessions.pop(address, None)
+            self.devices.pop(address, None)
+            self.known_devices.pop(address, None)
+        return note
+
+    async def _forget_os_bond(self, address: str) -> str:
+        if sys.platform == "win32":
+            from .pairing_windows import unpair_windows
+            return await unpair_windows(address)
+        async with self.radio_lock:
+            await self._resolve_device(address)
+            session = self.sessions.get(address)
+            if session is None:
+                session = BoardSession(self.devices[address], self.event_callback,
+                                       pairing_callback=self.pairing_callback)
+            await session.forget_bond()
+        return "Removed the pairing from this computer."
+
     async def disconnect(self, address: str) -> None:
         logger.info("Controller disconnect address=%s", address)
         self.reconnector.pause(address)

@@ -36,6 +36,10 @@ class Results:
     AUTHENTICATION_FAILURE = Status("AUTHENTICATION_FAILURE")
 
 
+class Unpair:
+    UNPAIRED, ALREADY_UNPAIRED, FAILED = Status("UNPAIRED"), Status("ALREADY_UNPAIRED"), Status("FAILED")
+
+
 class FakeArgs:
     def __init__(self, kind):
         self.pairing_kind = kind
@@ -74,9 +78,13 @@ class FakeCustom:
         return types.SimpleNamespace(status=self.status)
 
 
-def install_fakes(custom, paired=False, missing=False):
+def install_fakes(custom, paired=False, missing=False, unpair_status=None):
+    async def unpair_async():
+        return types.SimpleNamespace(status=unpair_status)
+
     native = types.SimpleNamespace(
-        device_information=types.SimpleNamespace(pairing=types.SimpleNamespace(is_paired=paired, custom=custom)),
+        device_information=types.SimpleNamespace(pairing=types.SimpleNamespace(
+            is_paired=paired, custom=custom, unpair_async=unpair_async)),
         close=MagicMock())
 
     async def from_address(_address):
@@ -88,6 +96,7 @@ def install_fakes(custom, paired=False, missing=False):
     enumeration.DevicePairingKinds = Kinds
     enumeration.DevicePairingProtectionLevel = Level
     enumeration.DevicePairingResultStatus = Results
+    enumeration.DeviceUnpairingResultStatus = Unpair
     for name, module in (("winrt", types.ModuleType("winrt")), ("winrt.windows", types.ModuleType("winrt.windows")),
                          ("winrt.windows.devices", types.ModuleType("winrt.windows.devices")),
                          ("winrt.windows.devices.bluetooth", bluetooth),
@@ -152,6 +161,23 @@ class WindowsPairingTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(pairing_windows.WindowsPairingError) as raised:
             await pairing_windows.pair_windows(self.device, lambda *a: None)
         self.assertIn("pairing button", str(raised.exception))
+
+    async def test_unpair_removes_the_windows_pairing(self):
+        native = install_fakes(None, paired=True, unpair_status=Unpair.UNPAIRED)
+        self.assertIn("Removed", await pairing_windows.unpair_windows("AA:BB:CC:DD:EE:FF"))
+        native.close.assert_called_once()
+
+    async def test_unpair_of_an_unknown_or_unpaired_board_is_not_an_error(self):
+        install_fakes(None, missing=True)
+        self.assertIn("no pairing", await pairing_windows.unpair_windows("AA:BB:CC:DD:EE:FF"))
+        install_fakes(None, paired=False)
+        self.assertIn("no pairing", await pairing_windows.unpair_windows("AA:BB:CC:DD:EE:FF"))
+
+    async def test_unpair_failure_says_to_use_windows_settings(self):
+        install_fakes(None, paired=True, unpair_status=Unpair.FAILED)
+        with self.assertRaises(pairing_windows.WindowsPairingError) as raised:
+            await pairing_windows.unpair_windows("AA:BB:CC:DD:EE:FF")
+        self.assertIn("Windows Settings", str(raised.exception))
 
 
 if __name__ == "__main__":

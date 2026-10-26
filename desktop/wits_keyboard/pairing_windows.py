@@ -95,3 +95,27 @@ async def pair_windows(device: Any, callback: PasskeyCallback, timeout: float = 
         raise WindowsPairingError(describe_status(status))
     finally:
         native.close()
+
+
+async def unpair_windows(address: str) -> str:
+    """Remove the board's pairing from Windows, so it also leaves Windows' Bluetooth list. Works whether or
+    not the board is switched on. Returns a short note for the event log."""
+    from winrt.windows.devices.bluetooth import BluetoothLEDevice
+    from winrt.windows.devices.enumeration import DeviceUnpairingResultStatus
+
+    native = await BluetoothLEDevice.from_bluetooth_address_async(int(address.replace(":", ""), 16))
+    if native is None:
+        return "Windows has no pairing for this board."
+    try:
+        pairing = native.device_information.pairing
+        if not pairing.is_paired:
+            return "Windows had no pairing for this board."
+        result = await pairing.unpair_async()
+        status = result.status
+        logger.info("Windows unpair address=%s status=%s", address, status)
+        if status in (DeviceUnpairingResultStatus.UNPAIRED, DeviceUnpairingResultStatus.ALREADY_UNPAIRED):
+            return "Removed the pairing from Windows."
+        raise WindowsPairingError("Windows would not remove the pairing "
+                                  f"({getattr(status, 'name', status)}); remove it in Windows Settings.")
+    finally:
+        native.close()

@@ -118,6 +118,7 @@ class UiBridge(QObject):
     management_finished = Signal(str, str)
     latest_release = Signal(object)  # (newest tag, signed release or None), or None when the check failed
     shutdown_done = Signal()  # boards released; the window may close
+    board_removed = Signal(str, str, str)  # address, name, note about the OS pairing
     update_aborted = Signal()  # the update could not start; restore Auto-connect
     update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
@@ -243,6 +244,7 @@ class MainWindow(QMainWindow):
         self.bridge.operation_error.connect(self._operation_error)
         self.bridge.update_ready.connect(self._open_firmware_dialog)
         self.bridge.update_aborted.connect(self._restore_auto_connect)
+        self.bridge.board_removed.connect(self._board_removed)
         self.bridge.latest_release.connect(self._latest_release_known)
         self.bridge.passkey_requested.connect(self._show_passkey_prompt)
         self.bridge.passkey_finished.connect(self._dismiss_passkey_prompt)
@@ -466,6 +468,11 @@ class MainWindow(QMainWindow):
         rename = QPushButton("Rename")
         rename.clicked.connect(self._rename_selected)
         row.addWidget(rename)
+        self.remove_button = QPushButton("Remove")
+        self.remove_button.setToolTip("Forget the selected board: remove it from this list and remove its "
+                                      "pairing from this computer (including Windows' Bluetooth list)")
+        self.remove_button.clicked.connect(self._remove_selected)
+        row.addWidget(self.remove_button)
         update = QPushButton("OTA Update…")
         update.clicked.connect(self._update_firmware)
         row.addWidget(update)
@@ -1174,6 +1181,45 @@ class MainWindow(QMainWindow):
                 self.bridge.operation_error.emit(target, str(error)),
                 operation=f"identify {address}",
             )
+
+    def _remove_selected(self) -> None:
+        addresses = self._require_management_selection()
+        if not addresses:
+            return
+        names = ", ".join(self.items[a].text(1) for a in addresses)
+        answer = QMessageBox.question(
+            self, "Remove board",
+            f"Remove {names} from WITS Deploy?\n\nThis disconnects it, removes it from this list and "
+            "removes its pairing from this computer (on Windows, from the Bluetooth devices list too). "
+            "The board itself is not changed. To use it again, open its pairing window and Scan.")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        for address in addresses:
+            self._cancel_delivery_for([address], "Board removed")
+            logger.info("UI remove requested address=%s", address)
+            name = self.items[address].text(1)
+            self.runner.submit(
+                self.controller.remove(address),
+                on_success=lambda note, target=address, label=name: self.bridge.board_removed.emit(target, label, note),
+                on_error=lambda error, target=address, label=name: self.bridge.board_removed.emit(
+                    target, label, "Could not finish removing it: " + safe_error(error)),
+                operation=f"remove {address}",
+            )
+
+    def _board_removed(self, address: str, name: str, note: str) -> None:
+        item = self.items.pop(address, None)
+        if item is not None:
+            self.device_tree.takeTopLevelItem(self.device_tree.indexOfTopLevelItem(item))
+        for table in (self.states, self.board_information, self.storage_io_summary, self.management_pending,
+                      self.auto_status, self.auto_management_tokens):
+            table.pop(address, None)
+        self.auto_connect_preferences.discard(address)
+        self.settings.remove(f"aliases/{address}")
+        self._save_devices()
+        self._targets_changed()
+        self._update_management_buttons()
+        self._log(f"Removed {name}. {note}")
+        self.status_label.setText(f"Removed {name}")
 
     def _rename_selected(self) -> None:
         addresses = self._require_management_selection()

@@ -129,4 +129,14 @@ def configure_logging() -> Path:
         platform.platform(),
     )
     logger.info("Diagnostic log=%s", LOG_PATH)
+    logger.info("Started from executable=%s launched by %s", sys.executable, _parent_command())
     return LOG_PATH
+
+
+def _parent_command() -> str:
+    """The command line of the process that started this one (Linux), to explain which launcher ran it."""
+    try:
+        raw = Path(f"/proc/{os.getppid()}/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+        return f"pid {os.getppid()}: {raw.strip()[:160]}"
+    except OSError:
+        return f"pid {os.getppid()}"

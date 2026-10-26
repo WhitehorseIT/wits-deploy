@@ -37,7 +37,21 @@ def refresh_existing():
             path.write_text(entry, encoding="utf-8")
             path.chmod(0o755)
             updated.append(path)
+    if updated:
+        refresh_menu_cache()
     return updated
+
+
+def refresh_menu_cache() -> None:
+    """Ask KDE to rebuild its application cache so the menu launches the updated path, not a cached one."""
+    import shutil
+    import subprocess
+    tool = shutil.which("kbuildsycoca6") or shutil.which("kbuildsycoca5")
+    if tool:
+        try:
+            subprocess.run([tool], timeout=30, capture_output=True, check=False)
+        except (OSError, subprocess.SubprocessError):
+            pass  # best effort: the shortcut file itself is already updated
 
 
 def main():

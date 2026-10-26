@@ -172,6 +172,33 @@ class ConfirmTests(unittest.TestCase):
             self.assertIsNotNone(app_update.read_pending(root))
 
 
+class LauncherRefreshTests(unittest.TestCase):
+    def test_refreshing_existing_shortcuts_rewrites_them_and_rebuilds_the_kde_cache(self):
+        from wits_keyboard import launcher
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            entry = root / "data" / "applications" / launcher.FILENAME
+            entry.parent.mkdir(parents=True)
+            entry.write_text("Exec=/old/path\n")
+            with patch.dict(os.environ, {"XDG_DATA_HOME": str(root / "data"), "XDG_CONFIG_HOME": str(root / "config")}), \
+                    patch.object(launcher, "app_directory", return_value=Path("/new/install")), \
+                    patch.object(launcher, "frozen", return_value=True), \
+                    patch.object(launcher, "refresh_menu_cache") as rebuild:
+                updated = launcher.refresh_existing()
+            self.assertEqual(updated, [entry])
+            self.assertIn("/new/install/WITS-Deploy", entry.read_text())
+            rebuild.assert_called_once()
+            self.assertFalse((root / "config" / "autostart" / launcher.FILENAME).exists())  # only existing ones
+
+    def test_nothing_is_rebuilt_when_there_are_no_shortcuts(self):
+        from wits_keyboard import launcher
+        with tempfile.TemporaryDirectory() as d:
+            with patch.dict(os.environ, {"XDG_DATA_HOME": d, "XDG_CONFIG_HOME": d}), \
+                    patch.object(launcher, "refresh_menu_cache") as rebuild:
+                self.assertEqual(launcher.refresh_existing(), [])
+            rebuild.assert_not_called()
+
+
 class AvailabilityTests(unittest.TestCase):
     def test_reasons(self):
         newer = SignedRelease("9.0.0", None, {"linux-x86_64": {}})

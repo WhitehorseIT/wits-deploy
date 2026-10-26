@@ -81,7 +81,8 @@ Instead, run the app from source with Python:
 
 1. Install 64-bit **Python 3.11 or newer** from python.org, including the *py launcher*.
 2. Download the repository (`git clone https://github.com/WhitehorseIT/wits-deploy.git` or
-   *Download ZIP*) and open its `desktop` folder.
+   *Download ZIP*). For a ZIP, **extract it first** (right-click, *Extract All*); the scripts do not work
+   from inside the ZIP. Then open the extracted `desktop` folder.
 3. Run `SETUP-WINDOWS.cmd` once, then `START-WINDOWS.cmd` to start the app.
 
 Pair each board in Windows **Settings > Bluetooth & devices** first, then connect in the app.

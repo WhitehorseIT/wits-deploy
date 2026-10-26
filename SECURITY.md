@@ -25,6 +25,9 @@ Helpful details:
 - Making a board type, arm itself, or change storage permissions without the
   intended physical action or authenticated control session.
 - Firmware update or flashing flaws, such as accepting an unverified image.
+- Release signing flaws: accepting a manifest or download that was not signed by a trusted key, a
+  downgrade to an older release, or an unsafe path or link in a downloaded archive (see
+  [release signing](docs/RELEASE-SIGNING.md)).
 - Leaking typed text, PINs, or keys through logs, files, or the web console.
 
 ## Supported versions

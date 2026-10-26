@@ -9,6 +9,7 @@ Run the commands below from the repository root unless stated otherwise.
 | `src/` | Shared firmware and board adapters |
 | `desktop/` | Python controller, setup scripts, and app tests |
 | `web/` | Early browser (Web Bluetooth) keyboard controller prototype; see the [roadmap](ROADMAP.md) |
+| `.github/workflows/` | CI: desktop test builds and the signed release workflow |
 | `scripts/` | Build, package, flash, and diagnostic tools |
 | `tests/` | Firmware compile-time checks |
 | `docs/` | Guides and hardware plans |
@@ -20,10 +21,10 @@ Install PlatformIO in a local environment if needed:
 
 ```bash
 python3 -m venv .venv-pio
-.venv-pio/bin/python -m pip install platformio
+.venv-pio/bin/python -m pip install platformio==6.2.0
 ```
 
-Build all targets (the 1.47-inch target is still in hardware bring-up):
+Build all targets:
 
 ```bash
 .venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147
@@ -45,51 +46,37 @@ The offscreen setting lets Qt tests run without opening application windows.
 Automated tests use simulated Bluetooth/USB devices and do not replace physical
 tests of flashing, boot behavior, or interrupted transfers.
 
-## Build a release
+## Publish a release
 
-Set the firmware version in `src/firmware_version.h`, then replace `VERSION`
-below with that exact value:
+Releases are built, signed and published by GitHub Actions; see [release signing](RELEASE-SIGNING.md).
+
+1. Set the same version in `src/firmware_version.h`, `desktop/wits_keyboard/__init__.py` and
+   `desktop/packaging/firmware-release.txt`. Optionally add `docs/release-notes/<version>.md`.
+2. Run the checks: the desktop tests above, and `.venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147`.
+3. Push, optionally run the **Desktop binaries** workflow on the commit as a dry run, then push a tag
+   `v<version>`. The **Release** workflow checks the tag against the version files, builds firmware and
+   the Linux app, signs the manifest and creates the GitHub release.
+
+Firmware and app versions can differ in principle, but the release workflow uses one version for both.
+
+### Building a release by hand
+
+The steps the workflow runs are available as scripts. Replace `VERSION` with the exact value in
+`src/firmware_version.h`:
 
 ```bash
 bash scripts/build-release.sh VERSION tqtpro
 bash scripts/build-release.sh VERSION waveshare7
 bash scripts/build-release.sh VERSION waveshare147
-```
-
-Output is grouped by model:
-
-```text
-releases/firmware/VERSION/
-  tqtpro/
-  waveshare7/
-  waveshare147/
-  WITS-Deploy-Release-VERSION.ota.json
-```
-
-Each model folder contains app/factory images, checksums, and its individual
-manifest. Once all three builds are available, the builder generates the common
-release manifest. It can also be generated explicitly for available models
-(including older two-model releases):
-
-```bash
-python3 scripts/make-ota-catalog.py releases/firmware/VERSION
-```
-
-Package the firmware and common manifest:
-
-```bash
 python3 scripts/package-ota-release.py releases/firmware/VERSION/WITS-Deploy-Release-VERSION.ota.json
 ```
 
-For the app, set `desktop/wits_keyboard/__init__.py` to the intended app version
-and prepare `releases/desktop/VERSION/README-FIRST.txt`, then run:
-
-```bash
-python3 scripts/package-controller.py
-```
-
-Firmware and app versions may differ. Build and package scripts refuse to
-overwrite existing releases; bump the relevant version for changed artifacts.
+Output is grouped by model under `releases/firmware/VERSION/` (`tqtpro/`, `waveshare7/`,
+`waveshare147/` and the common `WITS-Deploy-Release-VERSION.ota.json`). Each model folder holds
+app/factory images, checksums and its own manifest; the builder writes the common manifest once all
+three exist, and `python3 scripts/make-ota-catalog.py releases/firmware/VERSION` can generate it for
+the models available. Build and package scripts refuse to overwrite existing releases; bump the
+version for changed artifacts. For the desktop package, see [packaging](DESKTOP-PACKAGING.md).
 
 ## Naming
 
@@ -110,14 +97,5 @@ something for existing users:
 | Pairing agent path `/com/whitehorseit/WitsKeyboard/PairingAgent` | Internal D-Bus identifier |
 | `scripts/package-stable-release.py` | Legacy promotion of the 0.1.x T-QT Pro releases, which keep their names |
 
-See the [release layout](../releases/README.md) and
+See the [release layout](../releases/README.md), [packaging](DESKTOP-PACKAGING.md) and the
 [update/recovery guide](OTA-UPDATES.md) for distribution and flashing details.
-
-## Native desktop packages
-
-Use `bash scripts/build-desktop-linux.sh` on Linux or
-`scripts\build-desktop-windows.cmd` on Windows. The app includes the complete
-firmware release configured in `desktop/packaging/firmware-release.txt`; supply
-`--firmware PATH_TO_COMMON_JSON` for another extracted complete release.
-The GitHub Desktop binaries workflow builds firmware once and includes it
-in Windows/Linux artifacts. See [native packaging](DESKTOP-PACKAGING.md).

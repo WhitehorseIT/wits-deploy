@@ -1,154 +1,119 @@
-# App shortcuts and standalone builds
+# Packaging, shortcuts and app updates
 
-App **0.2.0-dev13** includes native builds, bundled firmware, Linux shortcuts and optional automatic reconnect.
-The Linux standalone build now exists and passed its offline startup check.
-Its archive and all extracted file hashes were verified. The extracted app is
-in `releases/desktop/0.2.0-dev13/native/WITS-Deploy-0.2.0-dev13-Linux-x86_64/`.
-The project-root launcher points to it. For its menu entry, run that folder's
-`INSTALL-LAUNCHER.sh`; KDE can pin the menu entry to its Task Manager.
-The original Python app remains usable. Windows native builds and physical
-Bluetooth/USB tests of the native package remain pending. The current GitHub
-connector cannot access the org repository; CI must be triggered after pushing.
+## The packaged Linux build
 
-## One-click launching now
-
-From the repository root on Kubuntu:
+Each release carries `WITS-Deploy-<version>-Linux-x86_64.tar.gz` with a `.sha256` file. It bundles
+Python and every dependency, so the receiving computer needs no Python. Extract the **whole**
+archive to a permanent folder, keeping `_internal/` and `helpers/` beside the `WITS-Deploy`
+executable:
 
 ```bash
-bash desktop/INSTALL-LAUNCHER-LINUX.sh
+sha256sum -c WITS-Deploy-<version>-Linux-x86_64.tar.gz.sha256
+mkdir -p ~/Apps && tar xzf WITS-Deploy-<version>-Linux-x86_64.tar.gz -C ~/Apps
+cd ~/Apps/WITS-Deploy-<version>-Linux-x86_64 && bash INSTALL-LAUNCHER.sh
 ```
 
-This installs **WITS Deploy** in the current user's application menu. It points
-to this checkout's `desktop/START-LINUX.sh`, so Python setup is needed once.
-The generated `WITS Deploy.desktop` in the checkout also launches it directly.
-Keep the checkout in place; reinstall the shortcut if it moves.
+`INSTALL-LAUNCHER.sh` adds a per-user menu entry (`~/.local/share/applications/com.whitehorseit.WITSDeploy.desktop`).
+Add `--autostart` to also start at graphical sign-in, or `--remove-autostart` to undo it. These are
+per-user desktop files, not services, and starting the app never arms a board or sends text. Reinstall
+the shortcut if you move the folder.
 
-Sign-in launching is optional and off by default:
+The build is made on Ubuntu 22.04, so it needs a system at least as new as that (glibc), plus the
+usual system Bluetooth (BlueZ), Qt platform libraries and serial-port permissions. Nothing changes
+those settings for you.
+
+Contents: the app and helper programs, `README-FIRST.txt`, `BUILD-INFO.json`, `DEPENDENCIES.json`
+(third-party versions and licenses), `licenses/` and `SHA256SUMS.txt`. The bundled firmware for all
+three boards is preselected in the update dialogs.
+
+## Updating the app (Linux)
+
+When a newer release has a verified signature, **Update app to X…** appears next to the *Devices*
+heading. It is hidden for source installs and when the install folder is not writable.
+
+1. The app downloads the signed archive and checks its size and SHA-256 against the signed manifest.
+2. It unpacks the archive beside the running copy, in the same parent folder (for example `~/Apps`),
+   and renames it into place only when complete. The running copy is never modified.
+3. A small wrapper restarts the app into the new version after two seconds, so Bluetooth is released.
+   If the new version exits within 25 seconds of starting, the wrapper starts the previous one instead.
+4. After the new version has run for 15 seconds it moves your menu and sign-in shortcuts to itself and
+   logs where the previous copy is. Delete that folder when you are satisfied.
+
+Updates need your confirmation and are blocked while a board is armed or typing. See
+[release signing](RELEASE-SIGNING.md) for how releases are verified.
+
+## Windows
+
+Windows binaries are not published, because unsigned executables trigger SmartScreen warnings.
+Windows users run the app from Python; see the [repository README](../README.md#windows-run-from-python)
+and `desktop/SETUP-WINDOWS.cmd` / `desktop/START-WINDOWS.cmd`. CI still builds a Windows package as
+an artifact of the **Desktop binaries** workflow for testing. It contains `WITS-Deploy.exe` and
+`INSTALL-SHORTCUT.cmd` (Start menu shortcut, or `--autostart` for sign-in).
+
+## Source installs and shortcuts
+
+On Linux, from the repository root:
 
 ```bash
-bash desktop/INSTALL-LAUNCHER-LINUX.sh --autostart
+bash desktop/INSTALL-LAUNCHER-LINUX.sh              # app-menu entry pointing at this checkout
+bash desktop/INSTALL-LAUNCHER-LINUX.sh --autostart  # also start at sign-in
 bash desktop/INSTALL-LAUNCHER-LINUX.sh --remove-autostart
 ```
 
-The first command installs the menu entry and sign-in entry; the second removes
-only the sign-in entry. These are per-user desktop files, not system services.
-Starting the app never arms a board or sends text; saved Target boxes remain
-unchecked. Removing `~/.local/share/applications/com.whitehorseit.WITSDeploy.desktop`
-removes the menu entry (adjust for `XDG_DATA_HOME` if configured).
+The entry runs `desktop/START-LINUX.sh`, so run `bash desktop/SETUP-LINUX.sh` once first. Keep the
+checkout in place, or reinstall the shortcut if it moves.
 
 ## Build locally
 
-PyInstaller bundles Python and the dependencies. It must build on the target
-OS; it is not a Windows cross-compiler on Linux. This first build configuration
-supports x86-64 Windows and Linux. Python 3.13 is used by CI; dependency versions
+PyInstaller must build on the target operating system. Python 3.13 is used by CI; dependency versions
 are in `desktop/requirements-build.txt` and `requirements-release.txt`.
 
-Linux, from the repository root:
+```bash
+bash scripts/build-desktop-linux.sh        # Linux
+scripts\build-desktop-windows.cmd          # Windows, from Command Prompt at the repository root
+```
+
+Each wrapper creates `.venv-build`, installs the build requirements, runs the tests and packages the
+app. Artifacts go to `releases/desktop/<version>/` unless you pass `--output DIRECTORY`; existing
+archives are never overwritten. Local builds bundle the release named in
+`desktop/packaging/firmware-release.txt`. From a source clone with no firmware binaries, extract a
+firmware ZIP and pass its common JSON:
 
 ```bash
-bash scripts/build-desktop-linux.sh
+bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Deploy-Release-<version>.ota.json
 ```
 
-Windows, from Command Prompt at the repository root:
+The builder checks every image's model, size, SHA-256 and matching app/factory contents, then runs an
+offline check of the packaged Qt app, Bluetooth backend, serial enumeration, bundled esptool and all
+six firmware images. Only a passing build is packaged. These checks do not replace testing real
+pairing, reconnect, typing, storage, OTA and USB flashing on each operating system.
 
-```bat
-scripts\build-desktop-windows.cmd
-```
-
-Each wrapper creates `.venv-build`, installs the build requirements, runs app
-tests and packages the native programs. Setup downloads need network access.
-When dependencies are already installed, the common builder is:
-
-```bash
-python scripts/build-desktop.py
-```
-
-Artifacts go to `releases/desktop/0.2.0-dev13/`:
-
-- `WITS-Deploy-0.2.0-dev13-Windows-x64.zip`
-- `WITS-Deploy-0.2.0-dev13-Linux-x86_64.tar.gz`
-- A companion `.sha256` file for each archive.
-
-These names describe the intended outputs; the files exist only after a
-successful native build. Existing archives are never overwritten. Use a new
-app version for changed releases, or `--output SOME_OTHER_DIRECTORY` for an
-isolated first build. The native app includes app/factory firmware for all three
-boards. Local builds use the complete release named in
-`desktop/packaging/firmware-release.txt`. If building from a source clone with
-no binaries, extract a firmware ZIP and pass its common JSON, for example:
-
-```bash
-bash scripts/build-desktop-linux.sh --firmware /path/to/WITS-Deploy-Release-0.2.0-dev18.ota.json
-```
-
-The builder validates every image's model, size, SHA-256 and matching app/factory
-contents before packaging. The included JSON is preselected in both update
-dialogs; selecting another release remains available. Native packages include
-firmware inside their portable folder, with the GUI's resources. Source-only
-app distributions still require separate firmware files.
+The app and the USB helper are separate programs: GUI USB operations call the bundled helper, which
+embeds esptool. This avoids relaunching the GUI where `sys.executable` is no longer a Python
+interpreter.
 
 ## GitHub Actions
 
-Push the committed source and workflow to `WhitehorseIT/wits-deploy`, then use
-**Actions → Desktop binaries → Run workflow** on the main branch. A
-`desktop-v*` tag push also triggers the workflow. Each run builds on
-`windows-2022` and `ubuntu-22.04`, using Python 3.13. A preceding Linux job
-builds all three board targets using PlatformIO 6.2.0 and platform 8.0.0 into
-an isolated directory; both desktop jobs include those same validated images.
-Tracked release metadata and prior binary releases are not overwritten. The
-included firmware version must match `src/firmware_version.h`. CI generates
-its own build metadata/checksums, so freshly compiled images may differ from
-previous local builds. It uploads the included firmware and two desktop artifacts
-with their archive checksums; it does not publish a GitHub Release or send the
-builds to anyone. Download the artifact and extract the inner package.
+- **Release** (tag `v<version>`): builds firmware and the Linux app, writes and signs the release
+  manifest, and publishes a GitHub release. See [release signing](RELEASE-SIGNING.md).
+- **Desktop binaries** (manual, or a `desktop-v*` tag): builds the three firmware images once, then the
+  desktop app on `ubuntu-22.04` and `windows-2022`, and uploads them as workflow artifacts. It does not
+  publish a release or send the builds anywhere. Use it to test a commit before tagging.
 
-The Ubuntu 22.04 runner establishes a more useful baseline than building only
-on the newest Kubuntu. Linux bundles still depend on the host's glibc and
-system graphics/Bluetooth libraries. Local builds inherit the local host's
-glibc requirements; they are not universal Linux executables. Bluetooth/BlueZ,
-serial permissions and Windows PIN pairing remain OS responsibilities.
+Both workflows build firmware with PlatformIO 6.2.0 (platform 8.0.0) in an isolated directory, so
+freshly compiled images can differ byte-for-byte from earlier local builds. The firmware version must
+match `src/firmware_version.h`.
 
-## Standalone package contents and checks
+## Logs and settings
 
-Extract the complete archive, keeping `_internal/` and `helpers/` beside
-`WITS-Deploy.exe` or `WITS-Deploy`. Double-click the executable; the receiving
-PC needs no Python installation. Linux bundles include `INSTALL-LAUNCHER.sh`;
-Windows bundles include `INSTALL-SHORTCUT.cmd` for a Start menu shortcut.
-Each supports an explicit `--autostart` option for sign-in launching. Reinstall
-shortcuts after moving a portable package. On Windows, remove the Startup
-shortcut to disable sign-in launching.
-
-The GUI and USB console helper are separate native programs. GUI USB operations
-invoke the bundled helper, and the helper invokes its own embedded esptool.
-This avoids accidentally relaunching the GUI when `sys.executable` no longer
-means a Python interpreter. Esptool stubs and serial dependencies are collected.
-The frozen GUI writes logs to per-user storage instead of its installation folder:
+The packaged app writes its log to per-user storage, not the install folder:
 
 - Linux: `$XDG_STATE_HOME/wits-deploy/logs` or `~/.local/state/wits-deploy/logs`.
 - Windows: `%LOCALAPPDATA%\Whitehorse IT Solutions\WITS Deploy\logs`.
 
-Source runs keep `desktop/logs/`. Existing QSettings organization/application
-identity is preserved, so names, rows and aliases remain available.
+Source runs keep `desktop/logs/`. The saved-settings identity is unchanged across versions, so saved
+boards, names and delays carry over.
 
-The builder runs tests and an offline check of the frozen Qt application,
-platform Bluetooth backend, serial enumeration, bundled esptool stubs/CLI and
-all six included firmware images.
-It removes the checkout's `PYTHONPATH` for that check. Only a passing build
-gets packaged. `BUILD-INFO.json`, `DEPENDENCIES.json`, license files and
-`SHA256SUMS.txt` accompany the bundle. These checks do not replace testing
-actual pairing, reconnect, PIN entry, typing, storage, OTA and USB flashing on
-both operating systems. First native candidates are unsigned testing builds.
-
-Primary references: [PyInstaller operating mode](https://pyinstaller.org/en/stable/operating-mode.html),
-[runtime executable paths](https://pyinstaller.org/en/stable/runtime-information.html),
-[subprocess considerations](https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html),
-and [desktop entry quoting](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
-
-## Dev13 reconnect and storage lifecycle
-
-Enable the saved Auto-connect checkbox independently of Target. Existing OS
-pairing is required; missing/stale bonds pause and require manual pairing.
-Manual Disconnect pauses background retries until Connect/toggle/restart.
-The firmware13 write grant lasts for the USB export until safe eject, including
-when this app closes or reconnects. Rebuilding only the app does not fix an old
-board's immediate write revocation; install firmware13 as well.
+References: [PyInstaller operating mode](https://pyinstaller.org/en/stable/operating-mode.html),
+[runtime paths](https://pyinstaller.org/en/stable/runtime-information.html), and
+[desktop entry quoting](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).

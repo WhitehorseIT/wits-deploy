@@ -6,9 +6,8 @@ Install blank board/factory recovery for first installation; this clears
 existing board settings. Update working board writes/verifies the inactive
 slot before changing boot selection and preserves pairings.
 
-The 1.47-inch target in dev10 is a hardware bring-up build, not production
-validated. Read this model folder's README-FIRST.txt for the exact board and
-first-test sequence. Do not use another model's binary.
+Read this model folder's README-FIRST.txt for the exact board and first-test
+sequence. Do not use another model's binary.
 
 Close serial monitors. Enter FLASH/ROM bootloader mode before opening the
 flasher. T-QT Pro and Waveshare147 use native USB; Waveshare7 uses UART for

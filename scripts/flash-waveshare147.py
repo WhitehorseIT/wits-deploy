@@ -10,10 +10,16 @@ sys.path.insert(0, str(PROJECT / "desktop"))
 from wits_keyboard.usb_flash import SerialFlasher
 
 
+# The release the current source builds, from the same file the desktop app and CI use.
+DEFAULT_VERSION = (Path(__file__).resolve().parents[1] / "desktop" / "packaging" / "firmware-release.txt"
+                   ).read_text().strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", help="bootloader port, e.g. /dev/ttyACM0 or COM5")
-    parser.add_argument("--version", default="0.2.0-dev18")
+    parser.add_argument("--version", default=DEFAULT_VERSION,
+                        help=f"firmware release under releases/firmware (default: {DEFAULT_VERSION})")
     parser.add_argument("--update", action="store_true",
                         help="preserve settings by updating the inactive slot of an existing WITS install")
     args = parser.parse_args()

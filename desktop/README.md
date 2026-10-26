@@ -1,218 +1,160 @@
-# WITS Deploy Controller
+# WITS Deploy desktop app
 
-Native Windows/Linux controller for one or more WITS Deployment Keyboards.
-It talks directly to each board through the operating system's BLE stack; it
-does not load executable UI code from the public website.
+Native Windows and Linux controller for one or more WITS Deploy boards. It talks directly to each
+board through the operating system's Bluetooth stack and loads no code from the web.
 
-Stable release: **0.1.0**. Requires Python 3.11 or newer. The source release
-includes setup/launch scripts and pinned direct dependencies in
-`requirements-release.txt`. Firmware is the tested rc13 binary promoted
-unchanged to 0.1.0.
+## Run it
 
-## Development setup
+- **Packaged Linux build:** see the [repository README](../README.md#install-the-desktop-app). Updates
+  install from inside the app.
+- **From source (Linux):** `bash SETUP-LINUX.sh`, then `bash START-LINUX.sh`. `bash
+  INSTALL-LAUNCHER-LINUX.sh` adds an app-menu shortcut; add `--autostart` only if you want it to
+  start at sign-in.
+- **From source (Windows):** install 64-bit Python 3.11 or newer with the py launcher, then run
+  `SETUP-WINDOWS.cmd` once and `START-WINDOWS.cmd` to start. Keep the console window open.
+- **Development:** `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/python run.py`
 
-```bash
-cd desktop
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python run.py
-```
+Requires Python 3.11 or newer for source runs. See [packaging](../docs/DESKTOP-PACKAGING.md) for
+shortcuts, builds and in-app updates.
 
-On Windows, extract the release and run `SETUP-WINDOWS.cmd`, then
-`START-WINDOWS.cmd`. On Linux, run `bash SETUP-LINUX.sh`, then
-`bash START-LINUX.sh`. Run `bash INSTALL-LAUNCHER-LINUX.sh` for an app-menu
-shortcut; append `--autostart` only if sign-in launching is wanted.
+## The board list
 
-App dev11 includes native Windows/Linux packaging support and a GitHub Actions
-build workflow. The Linux native package passed local startup checks; Windows
-builds remain pending. See [the build and launcher guide](../docs/DESKTOP-PACKAGING.md).
-Source setup remains available while those candidates are tested.
+The list at the top shows each saved board: **Target**, **Auto-connect**, **Device** (its friendly
+name), **Board state**, **Firmware** and **Last result**. Drag column edges to resize them.
+
+- **Board state:** DISARMED (green), ARMED (red) or TYPING (orange), plus Authenticating, Watching
+  and Offline. A disconnected board is never shown as confirmed disarmed.
+- **Firmware:** the version the board reports, highlighted green when it is the newest known, yellow
+  when an update is available and red for a critical update. Hover for details. The newest known
+  version comes from the bundled firmware and, when reachable, the project's latest release. See
+  [the update check](../docs/OTA-UPDATES.md#firmware-version-colors-and-the-update-check).
+- **Target:** which boards receive text and keys. Every box starts unchecked at launch.
+- **Auto-connect:** reconnect this board automatically; see below.
+
+The app restores saved names and addresses at launch. It stores only names and addresses, not PINs
+or Bluetooth keys.
 
 ## Pairing
 
-The app restores its known device list and friendly aliases at launch. Target
-checkboxes start unchecked. Linux's Bluetooth service retains the actual bond;
-the app stores only names and addresses, not PINs or Bluetooth keys. Use
-**Connect** for a normal reconnect, and reserve **Re-pair** for a stale bond.
-On Linux, saved devices are resolved from BlueZ's cache before trying discovery.
-With rc12 or newer, a board in HID mode advertises for bonded computers at
-startup and after disconnects. Select a saved board and Connect without
-holding a button or entering another PIN. Older firmware requires opening
-the advertising/pairing window with left first. Adding a new computer or
-replacing a cleared bond still requires the physical pairing window.
+Linux's Bluetooth service keeps the actual bond. Use **Connect** for a normal reconnect and reserve
+**Re-pair** for a stale bond. A board in HID mode advertises to bonded computers after startup and
+after disconnects, so a saved board connects without a button press or a new PIN. Adding a new
+computer, or replacing a cleared bond, needs the board's physical pairing window.
 
-For a first/new pairing, put the board into its physical pairing window before selecting Connect. The
-application asks Bleak to pair before accessing the authenticated GATT service.
-On Linux, the application registers its own BlueZ pairing agent and opens a
-PIN dialog in the controller. Enter the six-digit PIN shown on the board.
-This does not change the system's default Bluetooth agent. On Windows, pair
-through Bluetooth Settings first and then Connect in the app. The installed
-Bleak Windows backend only implements confirmation-style pairing, so an
-app-initiated fresh pairing may not handle the board's PIN requirement.
+- **First or new pairing:** open the board's pairing window (hold PAIR on the board), highlight it,
+  and choose **Connect**. On Linux the app registers its own pairing agent and opens a PIN dialog;
+  enter the six-digit PIN shown on the board. This does not change the system's default Bluetooth
+  agent.
+- **Windows:** pair through **Settings > Bluetooth & devices** first, then choose **Connect** in the
+  app. The Windows Bluetooth backend only supports confirmation-style pairing, so an app-initiated
+  fresh pairing may not handle the board's PIN. If a bond goes stale, remove it in Windows Settings
+  and pair again.
+- **Stale bond:** if a board was factory-flashed or had its bonds cleared, the computer may still
+  hold the old one. Hold the board's pairing button until its PIN shows, highlight it, and choose
+  **Re-pair**. This removes only that board's local bond.
+- The PIN is neither saved nor logged. Canceling PIN entry or choosing Disconnect cancels the
+  pairing in progress. **Cancel connection** stops a running attempt, which times out after 25
+  seconds on Linux.
 
-An existing saved bond normally reconnects without a PIN prompt. To test a
-fresh PIN exchange, use Re-pair after opening the board's pairing window.
-Canceling PIN entry or Disconnect cancels the pending pairing operation.
-The PIN is neither saved nor logged. On Windows, prefer removing a stale
-bond and re-pairing through Windows Settings for now; the app's Re-pair button
-automatically retries an unverified fresh-pairing path on that platform.
+A board's first ping must confirm authenticated state before it can send anything. GATT requests
+time out after ten seconds, and a disconnect ends a pending request immediately.
 
-Connect immediately displays a running connection attempt and elapsed time.
-While it runs, use **Cancel connection** to stop it, or **Re-pair** to replace
-the saved bond. On Linux the link connection times out after 25 seconds once
-PIN pairing is finished or an existing bond is found. A saved bond does not
-trigger another PIN prompt by itself.
+## Automatic reconnect
 
-If a board was factory-flashed or had its bonds cleared, the computer may still
-hold a stale bond. Hold the board's left button until the PIN is visible,
-highlight it in the device list, and choose **Re-pair**. This removes only that
-board's local OS bond, rediscovers it, and requests a new PIN.
+Tick **Auto-connect** for each saved board you want this computer to manage. It is saved separately
+from Target. The app watches for the board's HID advertisements, uses the existing bond and requires
+an authenticated response; it never starts PIN pairing in the background.
 
-The board's first ping must confirm authenticated state before it is eligible
-for sending. A notification subscription by itself is not treated as proof
-of authentication. GATT requests time out after ten seconds, including time
-spent waiting for the write; a disconnect ends a pending request immediately.
+Dropped links retry with 5, 10, 20, 40 and 60 second backoff. A manual **Disconnect** pauses that
+board until you click Connect, toggle Auto-connect or restart the app. Turning Auto-connect off
+cancels a pending attempt but keeps an established connection. Authentication failures pause retries.
+Connection setup, scans and updates share a Bluetooth lock, so attempts take turns.
 
 ## Safety behavior
 
-- Each device row has a live Board state badge: DISARMED (green), ARMED
-  (red), or TYPING (orange). Authenticating and Offline are distinct states;
-  a disconnected board is not presented as confirmed disarmed. Badge colors
-  and text remain visible when a row is highlighted in either theme.
-- Every destination must be explicitly checked in the Target column.
-- Every destination must be connected, authenticated, physically armed, and
-  idle before the application will submit text.
-- Multi-target text requires confirmation and reports each board separately.
+- Every destination must be explicitly checked in the Target column, connected, authenticated,
+  physically armed and idle before the app submits text.
+- Multi-target text asks for confirmation and reports each board separately.
 - Failed or interrupted text is never retried automatically.
 - Special keys and Ctrl+Alt+Delete require exactly one target.
-- STOP ALL is always available.
-- Payload content is never written to the event log or settings.
+- **STOP ALL** is always available. Payload content is never written to the event log or settings.
 
 ## Send timing
 
-Two independent controls are saved between app runs:
+Two independent controls are saved between runs:
 
-- **Before sending:** 0–60 seconds, default 0. Applies to text and special
-  keys/combos. A visible countdown gives time to focus the target window.
-- **Between characters:** 0–2000 ms, default 25. Applies to text typing on
-  the board. Zero selects the fastest device loop; USB and loop scheduling
-  can lengthen the actual interval. Single special-key combos remain atomic.
+- **Before sending:** 0-60 seconds (default 0), for text and special keys. A visible countdown gives
+  you time to focus the target window.
+- **Between characters:** 0-2000 ms (default 25), for typing text. Zero selects the fastest loop;
+  USB scheduling can lengthen the actual interval. Single key combinations stay atomic.
 
-One delayed operation can be pending at a time. It retains the original
-targets, text and timing settings; changing target checkboxes does not retarget
-it. Cancel delayed send, Stop selected (for a pending target), STOP ALL, closing
-the app, or a target disconnect/disarm/busy state cancels the countdown. No
-text is sent before expiry. Canceling preserves unsent editor content; edits
-made during the countdown are not cleared when the original text dispatches.
-The board must be connected, authenticated, armed and idle when scheduling
-and when the countdown finishes.
+One delayed operation can be pending at a time. It keeps its original targets, text and timing.
+Cancel delayed send, STOP, a target disconnecting or disarming, or closing the app cancels the
+countdown, and nothing is sent before it expires.
 
-Changing character pacing requires **0.1.0 (or rc13)**. The app acknowledges
-the timing setting before sending text, and reports a firmware-update error
-without sending text if an older board rejects it. The original 25 ms setting
-continues to work on older firmware. The start countdown is app-only and
-works with existing firmware. Per-connection firmware pacing resets to 25 ms
-on reconnect and is reapplied by the app as needed.
+## Storage controls
+
+For boards with a MicroSD slot, highlight one connected board; the storage controls act on it
+regardless of the Target boxes. The status line shows the board's firmware, card capacity, access
+mode and throughput since the last refresh.
+
+- **Mount read/write** works from a mounted or unmounted read-only drive without ejecting. The board
+  briefly withdraws the drive (about 3.5 seconds) and presents it again writable.
+- A read/write grant stays in place if the app closes or Bluetooth drops, because a computer may
+  still hold unwritten data. It ends at a confirmed eject, a media error or a board reset.
+- **Mount read-only** from read/write needs a safe eject on the computer first.
+- Safely eject writable drives before updating firmware or resetting. See
+  [USB storage](../docs/STORAGE.md).
+
+## Firmware and app updates
+
+- **OTA Update…** (Bluetooth): highlight one connected, authenticated, disarmed board. The app uses
+  the board's model to select the image. Choose **Download latest firmware** (signed, verified), use
+  the bundled firmware, or pick a release `.ota.json`. Bluetooth shares airtime between boards, so
+  the app offers to disconnect the others and switches Auto-connect off for the duration.
+- **USB Flash/Update…**: works without a Bluetooth connection. Choose the physical model, serial port
+  and release JSON, then put the board in FLASH mode. *Update working board* keeps pairings;
+  *Install blank board / factory recovery* clears settings and suits a first install.
+- **Update app…:** appears in the packaged Linux build when a newer signed release exists. It
+  downloads, verifies and installs beside the running copy and restarts into it, with an automatic
+  fallback if the new version fails to start.
+
+Details and recovery steps: [firmware updates](../docs/OTA-UPDATES.md),
+[release signing](../docs/RELEASE-SIGNING.md).
+
+## Closing the app
+
+Closing disconnects each board so it releases its Bluetooth link cleanly and accepts the next
+connection at once. With boards connected this can take up to three seconds; a notice with a
+countdown explains the wait, and the window stays responsive. With nothing connected the app closes
+immediately.
 
 ## Diagnostic log
 
-Ping feedback appears beneath the device buttons, in the footer, in Last
-result, and in the event log: sent/awaiting reply, acknowledged with round-trip
-milliseconds, or failed. The dedicated ping result remains visible even when
-the device table's Last result column is clipped.
+Every launch writes debug-level application and Bluetooth diagnostics. The file rotates at 4 MiB and
+keeps three old copies; GATT write payloads are redacted, so typed text and passwords are not
+recorded. The exact path is shown near the top of the app.
 
-Every launch writes DEBUG-level application and Bleak diagnostics to
-`logs/wits-keyboard-debug.log`. The file rotates at 4 MiB and keeps three old
-copies. GATT write payloads are redacted, so deployment text and passwords are
-not recorded. The exact path is also shown near the top of the application.
+| Run type | Log folder |
+| --- | --- |
+| Source | `desktop/logs/` |
+| Packaged Linux | `~/.local/state/wits-deploy/logs/` |
+| Packaged Windows | `%LOCALAPPDATA%\Whitehorse IT Solutions\WITS Deploy\logs\` |
 
-The Identify action requires firmware with opcode `0x13`; it is accepted only
-while the board is authenticated and physically disarmed.
-With firmware rc10 or later, Identify sends the current friendly name from the
-device row and displays it above the fixed hardware ID. Older firmware falls
-back to showing the ID and reports that a firmware update is needed for names.
-The label is temporary; it does not change the BLE advertised name or bond.
-The small board font uses an ASCII approximation, limited to 32 characters.
+Downloaded firmware and update state are kept per user, in `~/.local/share/wits-deploy/` on Linux
+and `%LOCALAPPDATA%\Whitehorse IT Solutions\WITS Deploy\data\` on Windows. Linux connections also
+record a small read-only BlueZ snapshot (pairing and link state, and the disconnect reason) in the
+event log.
 
-Linux connections also record a small BlueZ snapshot of the selected board's
-pairing/link state and the adapter's power/discovery state. When BlueZ emits
-its `Disconnected` reason signal, the event log distinguishes authentication
-failure, timeout, and a local/remote disconnect. This observer is read-only;
-it does not change adapter settings, bonds or the system's default agent.
-Older BlueZ versions may not supply the reason signal, in which case normal
-connection errors still appear. Only selected metadata fields are recorded.
+**Identify** shows the row's friendly name on the board's screen (ASCII, up to 32 characters). It
+works only while the board is authenticated and disarmed, and does not change the Bluetooth name or
+the bond.
 
 ## Tests
 
-The protocol tests do not require Bluetooth or Qt:
-
 ```bash
 cd desktop
-python3 -m unittest discover -s tests -v
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests
 ```
 
-## Bluetooth firmware updates
-
-Highlight one connected, authenticated, disarmed board and choose **OTA
-Update…**. Select the common release `.ota.json`, keeping its image folders
-alongside it. The app reads the board model and selects its matching image;
-legacy single-model manifests remain supported. OTA-capable firmware must be
-installed over USB first (dev8+ on original boards, dev10+ on Waveshare147).
-Your normal network connection stays connected.
-
-Safely eject writable USB storage first and keep power on. Progress includes
-KiB/s and estimated time. The 7-inch RGB screen pauses during writes; SPI
-screens retain their update message. Verified uploads reboot to PROGRAM.
-See [update and recovery](../docs/OTA-UPDATES.md) for details and test limits.
-
-## USB flashing and the 1.47-inch board (app dev10)
-
-**USB Flash/Update…** supports blank boards without a Bluetooth connection.
-Select the physical model, serial port and same common release JSON. Enter
-FLASH/bootloader mode, close serial monitors and safely eject writable storage.
-Working-board updates verify the layout and inactive app before committing;
-factory installation clears settings and is appropriate for a first install.
-Press RESET after verification. Setup installs esptool/pyserial; rerun setup
-if using an older environment.
-
-Waveshare7 uses its UART connector for flashing and separate USB for keyboard/
-storage. Waveshare147 uses its single USB-C connector. Select **Waveshare
-1.47-inch touch** for the new board; do not substitute another model. This port
-is a first bring-up build with hardware tests pending. See its
-[first-flash guide](../docs/boards/WAVESHARE147.md).
-
-Bluetooth uses authenticated model information; blank-board USB installation
-requires you to choose the exact physical model. Flash capacity checks catch
-many mismatches but cannot identify all unrelated boards with matching memory.
-
-## Automatic reconnect (app dev13)
-
-Check the separate **Auto-connect** box for each saved board you want this PC
-to manage. This choice is saved independently of Target; Target still starts
-unchecked. The app watches HID advertisements, uses an existing OS bond and
-requires an authenticated response. It never starts PIN pairing in the
-background. First pairing and stale bonds use Connect/Re-pair manually.
-
-Dropped links retry with 5/10/20/40/60-second backoff. Manual Disconnect pauses
-that board until Connect, toggling Auto-connect, or restarting the app. Turning
-Auto-connect off cancels its pending attempt but keeps an established connection.
-Connection setup, background/explicit scans and OTA transfers share an adapter
-lock; attempts are serialized. Watching/connecting/retry/pause messages appear
-in Last result and the event log. Authentication failures pause retries.
-
-## Writable USB storage lifetime (firmware dev13)
-
-A granted R/W USB export stays writable when this app closes, Bluetooth drops,
-or another control connection is established. This also applies when opening
-pairing or clearing bonds. The USB host may still have cached writes, so BLE
-control changes must not write-protect a mounted filesystem. Keyboard output
-still stops and disarms on disconnect.
-
-Read-only is the boot default. Granting R/W or changing mode requires the usual
-authenticated, disarmed operation and host safe eject. A grant lasts until
-confirmed host eject, media error or reset. OTA/programming restart remains
-blocked while a writable host export needs eject. There is no automatic host
-filesystem flush and no grace timer that assumes cached writes are complete.
-Dev12 and earlier revoked writes immediately on disconnect/reconnect, which
-can interrupt a copy. Flash dev13 for this fix; recompiling only the app is
-not sufficient. Verify any previously interrupted copies against their source.
+The tests use simulated Bluetooth and USB devices and need neither hardware nor a display.

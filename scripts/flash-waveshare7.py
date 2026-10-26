@@ -8,10 +8,16 @@ import subprocess
 import sys
 
 
+# The release the current source builds, from the same file the desktop app and CI use.
+DEFAULT_VERSION = (Path(__file__).resolve().parents[1] / "desktop" / "packaging" / "firmware-release.txt"
+                   ).read_text().strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", nargs="?", help="e.g. /dev/ttyACM0 or /dev/ttyUSB0")
-    parser.add_argument("--version", default="0.2.0-dev9", help="firmware release (default: 0.2.0-dev9)")
+    parser.add_argument("--version", default=DEFAULT_VERSION,
+                        help=f"firmware release under releases/firmware (default: {DEFAULT_VERSION})")
     parser.add_argument("--app-only", action="store_true", help="update application at 0x10000, keeping existing bonds")
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z.-]*", args.version):

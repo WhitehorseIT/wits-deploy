@@ -126,6 +126,7 @@ class BoardSession:
                 services=[protocol.SERVICE_UUID],
                 pair=allow_pairing and not app_pairing and not windows_pairing,
                 timeout=90.0 if allow_pairing else 25.0,
+                **self._platform_client_options(),
             )
             logger.debug("Awaiting Bleak connect address=%s", self.address)
             if app_pairing:
@@ -149,7 +150,16 @@ class BoardSession:
                 type(self.client).__name__,
             )
             logger.debug("Starting encrypted notifications address=%s", self.address)
-            await self.client.start_notify(protocol.TX_UUID, self._on_notification)
+            try:
+                await self.client.start_notify(protocol.TX_UUID, self._on_notification)
+            except Exception as error:
+                if sys.platform == "win32" and "not found" in str(error).lower():
+                    logger.warning("Windows service list incomplete address=%s error=%s", self.address, error)
+                    raise BoardError(
+                        "Windows has only part of this board's Bluetooth service list. Choose Remove, then "
+                        "pair the board again."
+                    ) from error
+                raise
             logger.info("Notifications enabled address=%s", self.address)
             # Notification subscription alone does not establish authentication:
             # require the board's own authenticated flag in the ping response.
@@ -197,6 +207,14 @@ class BoardSession:
                 await discovery.close()
             if not self.state.connected:
                 await self._close_diagnostics()
+
+    @staticmethod
+    def _platform_client_options() -> dict:
+        """Windows caches a board's service list, and a copy taken at the wrong moment (before the link was
+        encrypted, for example) can lack characteristics. Ask for a fresh list on every connection."""
+        if sys.platform == "win32":
+            return {"winrt": {"use_cached_services": False}}
+        return {}
 
     async def _close_diagnostics(self) -> None:
         diagnostic, self.linux_diagnostics = self.linux_diagnostics, None

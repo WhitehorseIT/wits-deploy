@@ -26,8 +26,9 @@ def main():
     entries = {"README-FIRST.txt": (release / "README-FIRST.txt").read_bytes()}
     paths = [source / name for name in (
         "run.py", "requirements.txt", "requirements-release.txt", "README.md",
-        "SETUP-WINDOWS.cmd", "START-WINDOWS.cmd", "SETUP-LINUX.sh", "START-LINUX.sh",
-        "INSTALL-LAUNCHER-LINUX.sh")]
+        "SETUP-LINUX.sh", "START-LINUX.sh", "INSTALL-LAUNCHER-LINUX.sh")]
+    windows_start = project / "WINDOWS-START.cmd"  # the single Windows launcher sits at the top of the archive
+    entries["WINDOWS-START.cmd"] = windows_start.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
     paths += sorted((source / "wits_keyboard").glob("*.py"))
     paths += sorted((source / "tests").glob("*.py"))
     paths.append(source / "packaging" / "firmware-release.txt")

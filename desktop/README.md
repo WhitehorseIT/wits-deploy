@@ -11,7 +11,8 @@ board through the operating system's Bluetooth stack and loads no code from the 
   INSTALL-LAUNCHER-LINUX.sh` adds an app-menu shortcut; add `--autostart` only if you want it to
   start at sign-in.
 - **From source (Windows):** install 64-bit Python 3.11 or newer with the py launcher, then run
-  `SETUP-WINDOWS.cmd` once and `START-WINDOWS.cmd` to start. Keep the console window open.
+  `WINDOWS-START.cmd` (in the repository's top folder). It checks Python and the app's packages, installs
+  anything missing, and starts the app; keep its console window open while you use the app.
 - **Development:** `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/python run.py`
 
 Requires Python 3.11 or newer for source runs. See [packaging](../docs/DESKTOP-PACKAGING.md) for

@@ -48,7 +48,7 @@ Updates need your confirmation and are blocked while a board is armed or typing.
 
 Windows binaries are not published, because unsigned executables trigger SmartScreen warnings.
 Windows users run the app from Python; see the [repository README](../README.md#windows-run-from-python)
-and `desktop/SETUP-WINDOWS.cmd` / `desktop/START-WINDOWS.cmd`. CI still builds a Windows package as
+and `WINDOWS-START.cmd` at the top of the repository. CI still builds a Windows package as
 an artifact of the **Desktop binaries** workflow for testing. It contains `WITS-Deploy.exe` and
 `INSTALL-SHORTCUT.cmd` (Start menu shortcut, or `--autostart` for sign-in).
 

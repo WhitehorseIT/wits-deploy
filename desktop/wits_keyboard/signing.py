@@ -12,7 +12,7 @@ from .release_check import parse_version
 
 MAX_MANIFEST_BYTES = 64 * 1024
 ASSET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,120}")
-ASSET_LABEL = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")  # unknown labels are tolerated so releases can add files later
+ASSET_LABEL = re.compile(r"[a-z0-9][a-z0-9_-]{0,31}")  # unknown labels are tolerated so releases can add files later
 
 
 class SignatureError(ValueError):

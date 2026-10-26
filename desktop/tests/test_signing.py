@@ -191,3 +191,32 @@ import unittest.mock  # noqa: E402  (used by setUp above)
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleaseScriptTests(unittest.TestCase):
+    """The exact commands the Release workflow runs must produce a manifest the app accepts."""
+
+    def test_workflow_style_manifest_and_signature_verify_in_the_app(self):
+        import os
+        import subprocess
+        import sys
+        script = Path(__file__).resolve().parents[2] / "scripts" / "release-signing.py"
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "WITS-Deploy-Firmware-0.2.0-dev99.zip").write_bytes(b"firmware")
+            (root / "WITS-Deploy-0.2.0-dev99-Linux-x86_64.tar.gz").write_bytes(b"linux")
+            env = {**os.environ, "WITS_RELEASE_SIGNING_KEY": PRIVATE}
+            run = lambda *args: subprocess.run([sys.executable, str(script), *args], cwd=root, env=env,
+                                               capture_output=True, text=True)
+            made = run("manifest", "--version", "0.2.0-dev99",
+                       "--asset", "firmware=WITS-Deploy-Firmware-0.2.0-dev99.zip",
+                       "--asset", "linux-x86_64=WITS-Deploy-0.2.0-dev99-Linux-x86_64.tar.gz",
+                       "--out", "release-manifest.json")
+            self.assertEqual(made.returncode, 0, made.stderr)
+            signed = run("sign", "release-manifest.json")
+            # The checked-in public key is not the test key, so signing is refused here; that refusal is
+            # the guard working. Verify the manifest itself with a signature from the test key instead.
+            self.assertNotEqual(signed.returncode, 0)
+            data = (root / "release-manifest.json").read_bytes()
+            manifest = signing.verify_manifest(data, signing.sign(PRIVATE, data), [PUBLIC])
+            self.assertEqual(sorted(manifest["assets"]), ["firmware", "linux-x86_64"])

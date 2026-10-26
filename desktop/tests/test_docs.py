@@ -31,8 +31,8 @@ class DocumentationTests(unittest.TestCase):
             (root / "desktop" / "wits_keyboard").mkdir(parents=True)
             (root / "desktop" / "packaging").mkdir()
             (root / "src" / "firmware_version.h").write_text('constexpr char VERSION[] = "1.0.0";')
-            (root / "desktop" / "wits_keyboard" / "__init__.py").write_text('__version__ = "1.0.1"')
-            (root / "desktop" / "packaging" / "firmware-release.txt").write_text("1.0.0")
+            (root / "desktop" / "wits_keyboard" / "__init__.py").write_text('__version__ = "0.3.0"')
+            (root / "desktop" / "packaging" / "firmware-release.txt").write_text("1.1.0")
             readme = root / "README.md"
             readme.write_text("[gone](missing.md) [bad](docs/a.md#nope) WITS Keyboard")
             (root / "docs" / "a.md").write_text("# Real heading\n")
@@ -40,7 +40,8 @@ class DocumentationTests(unittest.TestCase):
             module.ROOT = root
             module.MARKDOWN = [readme, root / "docs" / "a.md"]
             found = "\n".join(module.problems())
-        for expected in ("Version files disagree", "Missing release notes", "broken link missing.md",
+        for expected in ("newer than the firmware source", "Missing release notes: docs/release-notes/0.3.0.md",
+                         "Missing release notes: docs/release-notes/firmware-1.0.0.md", "broken link missing.md",
                          "no heading for anchor docs/a.md#nope", "old product name",
                          "docs/b.md is not linked"):
             self.assertIn(expected, found)

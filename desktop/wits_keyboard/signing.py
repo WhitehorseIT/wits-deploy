@@ -73,6 +73,8 @@ def verify_signature(data: bytes, signature_text: str, keys) -> str:
 def validate_manifest(data) -> dict:
     if not isinstance(data, dict) or data.get("schema") != 1 or data.get("product") != "wits-deploy":
         raise SignatureError("Unsupported release manifest")
+    if data.get("kind", "app") not in ("app", "firmware"):
+        raise SignatureError("Invalid release kind")
     version = data.get("version")
     if not isinstance(version, str) or parse_version(version) is None:
         raise SignatureError("Invalid release version")

@@ -1,7 +1,9 @@
 # Release signing
 
-Every release carries a `release-manifest.json` and a detached signature
-`release-manifest.json.sig`. The manifest lists the release version, an optional
+The app and the firmware are released separately. **App releases** are tagged `v<version>` and carry
+the Linux app; **firmware releases** are tagged `fw-v<version>` and carry the firmware ZIP. Every release
+carries a `release-manifest.json` and a detached signature `release-manifest.json.sig`, and the manifest
+records its `kind` (`app` or `firmware`), which the app checks against the tag it was served under. The manifest lists the release version, an optional
 `critical_below` threshold, and the name, size and SHA-256 of each downloadable file. The app
 trusts a download only if its manifest verifies against a public key built into the app and the
 file matches the manifest.
@@ -36,13 +38,18 @@ shipping a new key inside a manually installed app.
 
 ## Publishing a release
 
-1. Set the version in `src/firmware_version.h`, `desktop/wits_keyboard/__init__.py` and
-   `desktop/packaging/firmware-release.txt`; optionally add `docs/release-notes/<version>.md`.
-2. Push a tag `v<version>` (for example `v0.2.0-dev19`). The **Release** workflow builds the
-   firmware and Linux app, writes and signs the manifest, and publishes a GitHub release
-   (a prerelease for `-dev` and `-rc` versions).
-3. To flag a critical update, put the minimum safe version in `docs/release-notes/critical-below.txt`
-   before tagging; boards below it turn red.
+**Firmware** (only when the firmware changes): set the version in `src/firmware_version.h`, write
+`docs/release-notes/firmware-<version>.md`, and push the tag `fw-v<version>` (for example
+`fw-v1.0.0-rc1`). The **Firmware release** workflow builds the three board images, writes and signs the
+manifest and publishes the release (a prerelease for `-dev` and `-rc` versions).
+
+**App:** set the version in `desktop/wits_keyboard/__init__.py`, write `docs/release-notes/<version>.md`,
+and push the tag `v<version>`. The **Release** workflow builds the Linux app with the firmware release
+named in `desktop/packaging/firmware-release.txt` (it downloads and verifies that published firmware, so
+publish the firmware release first), signs the manifest and publishes the release.
+
+To flag a critical update, put the minimum safe version in `docs/release-notes/critical-below-app.txt` or
+`critical-below-firmware.txt` before tagging; versions below it turn red.
 
 Manual signing is also possible: `scripts/release-signing.py manifest ...` then `... sign ...`.
 

@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from wits_keyboard import release_check as rc
@@ -39,30 +39,28 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(rc.classify("0.2.0-dev14", latest), rc.CRITICAL)
         self.assertEqual(rc.classify("0.2.0-dev15", latest), rc.UPDATE)
 
-    def test_release_json(self):
-        data = {"tag_name": "v0.2.0", "body": "Notes\nCritical-below: 0.1.1\n"}
-        self.assertEqual(rc.from_release_json(data), Latest("0.2.0"))  # release notes cannot raise a critical flag
-        self.assertEqual(rc.from_release_json({"tag_name": "v0.3.0", "body": None}), Latest("0.3.0"))
-        self.assertIsNone(rc.from_release_json({"tag_name": "nightly"}))
-
-    def test_release_list_picks_the_highest_non_draft_including_prereleases(self):
-        releases = [{"tag_name": "v0.2.0-dev18", "prerelease": True},
-                    {"tag_name": "v0.3.0", "draft": True},
-                    {"tag_name": "v0.2.0-dev19", "prerelease": True}]
-        self.assertEqual(rc.from_release_list(releases), Latest("0.2.0-dev19"))
-        self.assertIsNone(rc.from_release_list([]))
-        self.assertIsNone(rc.from_release_list({"message": "rate limited"}))
+    def test_newest_from_tags_keeps_the_streams_apart(self):
+        tags = ["v0.2.0-dev22", "fw-v1.0.0-rc1", "v0.2.0-dev18", "fw-v0.2.0", "nightly", "fw-vjunk", "v0.3.0-draftish"]
+        self.assertEqual(rc.newest_from_tags(tags, "v"), Latest("0.2.0-dev22"))
+        self.assertEqual(rc.newest_from_tags(tags, "fw-v"), Latest("1.0.0-rc1"))
+        self.assertIsNone(rc.newest_from_tags(["nightly"], "v"))
+        self.assertIsNone(rc.newest_from_tags([], "fw-v"))
 
     def test_newest_keeps_highest_and_strictest(self):
         merged = rc.newest(Latest("0.2.0-dev18"), Latest("0.2.0", "0.1.0"), None)
         self.assertEqual(merged, Latest("0.2.0", "0.1.0"))
 
-    def test_fetch_failure_and_opt_out_return_none(self):
-        with patch("urllib.request.urlopen", side_effect=OSError("offline")):
-            self.assertIsNone(rc.fetch_latest())
-        with patch.dict(os.environ, {rc.DISABLE_ENV: "1"}), patch("urllib.request.urlopen") as opened:
-            self.assertIsNone(rc.fetch_latest())
+    def test_opt_out_makes_no_request(self):
+        from wits_keyboard import online_release
+        with patch.dict(os.environ, {rc.DISABLE_ENV: "1"}):
+            opened = MagicMock()
+            self.assertIsNone(online_release.fetch_listing(opened))
+            self.assertIsNone(online_release.latest_signed(opened, tags=None))
         opened.assert_not_called()
+
+
+def result(firmware_tag, signed_firmware, app_tag=None, signed_app=None):
+    return {"firmware": (firmware_tag, signed_firmware), "app": (app_tag, signed_app)}
 
 
 @unittest.skipUnless(QT, "Qt not installed")
@@ -83,11 +81,11 @@ class ColumnTests(unittest.TestCase):
             self.assertEqual(color(), "#145c43")
             window._show_firmware("A", "0.2.0-dev17")
             self.assertEqual(color(), "#8a6500")
-            window._latest_release_known((Latest("0.2.0"), SignedRelease("0.2.0", "0.2.0-dev17", {})))
+            window._latest_release_known(result(Latest("0.2.0"), SignedRelease("0.2.0", "0.2.0-dev17", {}, "firmware")))
             self.assertEqual(color(), "#8a6500")  # dev17 meets the floor, so only an update
-            window._latest_release_known((Latest("0.2.1"), SignedRelease("0.2.1", "0.2.0-dev18", {"firmware": {}})))
-            self.assertEqual(window.signed_release.version, "0.2.1")
-            window._latest_release_known((Latest("0.2.1"), None))  # unsigned: keeps the earlier verified release
+            window._latest_release_known(result(Latest("0.2.1"), SignedRelease("0.2.1", "0.2.0-dev18", {"firmware": {}}, "firmware")))
+            self.assertEqual(window.signed_firmware.version, "0.2.1")
+            window._latest_release_known(result(Latest("0.2.1"), None))  # unsigned: keeps the earlier verified release
             self.assertEqual(color(), "#a71927")
             self.assertEqual(window.items["A"].foreground(5).color().name(), "#ffffff")
             window._show_firmware("A", "unknown")

@@ -7,9 +7,9 @@ A desktop app (Linux and Windows) controls USB-connected ESP32-S3 boards over pa
 Bluetooth. Each board shows up to the target computer as a USB keyboard; boards with a MicroSD
 slot also appear as a USB drive.
 
-> **Status: test builds.** The current releases are `0.2.0-dev` pre-releases. The Linux app and all
-> three supported boards are tested on real hardware; Windows testing is in progress. See
-> [Status and limitations](#status-and-limitations).
+> **Status: test builds.** The desktop app is at `0.2.0-dev` pre-release versions and the firmware is a
+> release candidate for 1.0. The Linux app and all three supported boards are tested on real hardware;
+> Windows testing is in progress. See [Status and limitations](#status-and-limitations).
 
 ## Features
 
@@ -35,7 +35,8 @@ slot also appear as a USB drive.
 | Waveshare ESP32-S3-Touch-LCD-7 Ver1.1 | `waveshare7` | MicroSD |
 | Waveshare ESP32-S3-Touch-LCD-1.47 | `waveshare147` | MicroSD |
 
-Each model needs its own firmware image; all units of one model share an image. Board guides:
+Each model needs its own firmware image; all units of one model share an image. The firmware and the
+app have separate versions and releases (see [compatibility](docs/COMPATIBILITY.md)). Board guides:
 [Waveshare 7-inch](docs/boards/WAVESHARE7.md), [Waveshare 1.47-inch](docs/boards/WAVESHARE147.md).
 
 ### Where to buy
@@ -59,8 +60,8 @@ Manufacturer documentation:
 
 ### Linux (packaged build)
 
-Download `WITS-Deploy-<version>-Linux-x86_64.tar.gz` and its `.sha256` file from the
-[latest release](https://github.com/WhitehorseIT/wits-deploy/releases), then:
+Download `WITS-Deploy-<version>-Linux-x86_64.tar.gz` and its `.sha256` file from the newest app
+release (tagged `v<version>`) on the [releases page](https://github.com/WhitehorseIT/wits-deploy/releases), then:
 
 ```bash
 sha256sum -c WITS-Deploy-<version>-Linux-x86_64.tar.gz.sha256
@@ -136,6 +137,8 @@ see [release signing](docs/RELEASE-SIGNING.md). [Update and recovery guide](docs
 - **Tested on hardware (Linux host):** pairing, typing, auto-reconnect, Bluetooth and signed-download
   updates on all three boards, USB storage on the Waveshare 1.47-inch, and in-app updates of the
   Linux build.
+- **Firmware 1.0:** `1.0.0-rc1` is the release candidate; the remaining checks before 1.0 are interrupted
+  updates on every model, factory installs, Waveshare 7-inch USB storage, reset behavior and a soak test.
 - **Still to test:** the Windows app (pairing, auto-reconnect, updates, USB flashing), interrupted
   Bluetooth updates, and USB storage on the Waveshare 7-inch.
 - USB storage is limited by full-speed USB; see the [storage notes](docs/STORAGE.md).
@@ -147,6 +150,7 @@ see [release signing](docs/RELEASE-SIGNING.md). [Update and recovery guide](docs
 - [Build, test, and release](docs/DEVELOPMENT.md)
 - [Packaging and app updates](docs/DESKTOP-PACKAGING.md)
 - [Firmware updates and recovery](docs/OTA-UPDATES.md)
+- [Compatibility promises](docs/COMPATIBILITY.md)
 - [Release signing](docs/RELEASE-SIGNING.md)
 - [USB storage design](docs/STORAGE.md) and [benchmark](docs/STORAGE-BENCHMARK.md)
 - [Roadmap](docs/ROADMAP.md)

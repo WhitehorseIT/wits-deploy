@@ -227,7 +227,8 @@ class MainWindow(QMainWindow):
         self.auto_connect_preferences: set[str] = set()
         self.latest_firmware = release_check.bundled_latest()
         self.closing_notice_shown = False
-        self.signed_release = None  # newest release whose signature verified; enables online firmware
+        self.signed_app = None       # newest app release whose signature verified; enables app updates
+        self.signed_firmware = None  # newest firmware release whose signature verified; enables online firmware
         self._auto_connect_restore: set[str] = set()  # boards whose Auto-connect is off only during an update
         self.auto_management_tokens: dict[str, str] = {}
         self.auto_status: dict[str, str] = {}
@@ -968,7 +969,7 @@ class MainWindow(QMainWindow):
         self._cancel_delivery("Firmware updater opened")
         try:
             FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self,
-                           signed_release=self.signed_release).exec()
+                           signed_release=self.signed_firmware).exec()
         finally:
             self._restore_auto_connect()
 
@@ -994,32 +995,43 @@ class MainWindow(QMainWindow):
     def start_release_check(self) -> None:
         """Look for a newer release in the background; silent when offline."""
         def check():
-            tag = release_check.fetch_latest()
-            self.bridge.latest_release.emit(None if tag is None else (tag, online_release.latest_signed()))
+            tags = online_release.fetch_listing()  # one request; the app and firmware are separate release streams
+            if tags is None:
+                self.bridge.latest_release.emit(None)
+                return
+            self.bridge.latest_release.emit({
+                kind: (release_check.newest_from_tags(tags, prefix),
+                       online_release.latest_signed(kind=kind, tags=tags))
+                for kind, prefix in online_release.KINDS.items()})
         threading.Thread(target=check, name="wits-release-check", daemon=True).start()
 
     def _latest_release_known(self, result) -> None:
+        """``result`` maps "app" and "firmware" to (newest tag, verified signed release or None)."""
         if result is None:
             self._log("Release check skipped or offline; comparing against the firmware bundled with this app")
             return
-        online, signed = result
+        tag, signed = result["firmware"]
         if signed is not None:
-            self.signed_release = signed
-            online = release_check.Latest(online.version, signed.critical_below)
-        self.latest_firmware = release_check.newest(self.latest_firmware, online)
+            self.signed_firmware = signed
+            tag = release_check.Latest(signed.version, signed.critical_below)
+        self.latest_firmware = release_check.newest(self.latest_firmware, tag)
+        if tag is not None:
+            self._log(f"Newest published firmware: {tag.version}"
+                      + (" (signature verified)" if signed is not None else " (no verified signature; online download unavailable)"))
+        _app_tag, signed_app = result["app"]
+        if signed_app is not None:
+            self.signed_app = signed_app
         self._offer_app_update()
-        self._log(f"Newest published firmware: {online.version}"
-                  + (" (signature verified)" if signed is not None else " (no verified signature; online download unavailable)"))
         for address, item in self.items.items():
             if item.text(5):
                 self._show_firmware(address, item.text(5))
 
     def _offer_app_update(self) -> None:
-        reason = app_update.unavailable_reason(self.signed_release)
+        reason = app_update.unavailable_reason(self.signed_app)
         self.app_update_button.setVisible(reason is None)
         if reason is None:
-            self.app_update_button.setText(f"Update app to {self.signed_release.version}…")
-            self._log(f"App update available: {self.signed_release.version}")
+            self.app_update_button.setText(f"Update app to {self.signed_app.version}…")
+            self._log(f"App update available: {self.signed_app.version}")
 
     def _update_app(self) -> None:
         from .app_update_dialog import AppUpdateDialog
@@ -1029,7 +1041,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Boards are busy",
                                     f"Disarm {', '.join(busy)} before updating the app.")
             return
-        release = self.signed_release
+        release = self.signed_app
         if release is None or app_update.unavailable_reason(release):
             return
         dialog = AppUpdateDialog(release, self)

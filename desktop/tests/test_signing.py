@@ -25,13 +25,16 @@ def bundle(version="0.2.0-dev19", extra=None):
     return stream.getvalue()
 
 
-def signed_release(version="0.2.0-dev19", critical=None, archive=None, private=PRIVATE, add_keys=None, tamper=False):
+def signed_release(version="0.2.0-dev19", critical=None, archive=None, private=PRIVATE, add_keys=None, tamper=False,
+                   kind=None):
     archive = bundle(version) if archive is None else archive
     manifest = {"schema": 1, "product": "wits-deploy", "version": version, "critical_below": critical,
                 "assets": {"firmware": {"name": f"WITS-Deploy-Firmware-{version}.zip", "size": len(archive),
                                          "sha256": hashlib.sha256(archive).hexdigest()}}}
     if add_keys:
         manifest["add_keys"] = add_keys
+    if kind:
+        manifest["kind"] = kind
     data = json.dumps(manifest, sort_keys=True).encode()
     signature = signing.sign(private, data)
     if tamper:
@@ -55,9 +58,9 @@ class FakeNet:
         return body
 
 
-def publish(net_files, version="0.2.0-dev19", **kwargs):
-    data, signature, archive = signed_release(version, **kwargs)
-    base = f"{online.DOWNLOAD_BASE}/v{version}"
+def publish(net_files, version="0.2.0-dev19", kind=None, **kwargs):
+    data, signature, archive = signed_release(version, kind=kind, **kwargs)
+    base = f"{online.DOWNLOAD_BASE}/{online.KINDS[kind or 'app']}{version}"
     net_files[f"{base}/release-manifest.json"] = data
     net_files[f"{base}/release-manifest.json.sig"] = signature.encode()
     net_files[f"{base}/WITS-Deploy-Firmware-{version}.zip"] = archive
@@ -89,6 +92,8 @@ class SigningTests(unittest.TestCase):
         entry = {"name": "x.zip", "size": 10, "sha256": "0" * 64}
         base = {"schema": 1, "product": "wits-deploy", "version": "0.2.0", "assets": {"firmware": entry}}
         signing.validate_manifest({**base, "assets": {"firmware": entry, "windows-source": entry}})
+        with self.assertRaises(SignatureError):
+            signing.validate_manifest({**base, "kind": "bogus"})
         for label in ("Bad Label", "../x", ""):
             with self.assertRaises(SignatureError):
                 signing.validate_manifest({**base, "assets": {label: entry}})
@@ -177,6 +182,56 @@ class OnlineTests(unittest.TestCase):
         publish(files, "0.2.0-dev20", private=OTHER_PRIVATE)
         self.assertEqual(online.fetch_signed("0.2.0-dev20", FakeNet(files), self.state).version, "0.2.0-dev20")
 
+    def test_firmware_releases_are_a_separate_stream(self):
+        files = {}
+        publish(files, "1.0.0-rc1", kind="firmware")
+        net = FakeNet(files)
+        release = online.fetch_signed("1.0.0-rc1", net, self.state, kind="firmware")
+        self.assertEqual((release.kind, release.tag), ("firmware", "fw-v1.0.0-rc1"))
+        self.assertIn("/fw-v1.0.0-rc1/WITS-Deploy-Firmware-1.0.0-rc1.zip", release.asset_url("firmware"))
+        manifest = online.download_firmware(release, urlopen=net, directory=Path(self.directory.name))
+        self.assertTrue(manifest.name.endswith(".ota.json"))
+
+    def test_a_manifest_of_the_wrong_kind_is_refused(self):
+        files = {}
+        publish(files, "0.2.0-dev19", kind="firmware")           # signed as firmware...
+        base = f"{online.DOWNLOAD_BASE}/v0.2.0-dev19"            # ...but served as an app release
+        for name in ("release-manifest.json", "release-manifest.json.sig"):
+            files[f"{base}/{name}"] = files[f"{online.DOWNLOAD_BASE}/fw-v0.2.0-dev19/{name}"]
+        with self.assertRaises(SignatureError):
+            online.fetch_signed("0.2.0-dev19", FakeNet(files), self.state)
+
+    def test_downgrade_tracking_is_per_stream_and_reads_older_state_files(self):
+        files = {}
+        publish(files, "0.2.0-dev30")                             # app
+        publish(files, "1.0.0-rc1", kind="firmware")
+        publish(files, "0.2.0-dev19", kind="firmware")            # a lower firmware version
+        net = FakeNet(files)
+        online.fetch_signed("0.2.0-dev30", net, self.state)       # a high app version does not block firmware
+        online.fetch_signed("1.0.0-rc1", net, self.state, kind="firmware")
+        with self.assertRaises(SignatureError):
+            online.fetch_signed("0.2.0-dev19", net, self.state, kind="firmware")
+        legacy = online.TrustState(Path(self.directory.name) / "legacy")
+        legacy.path.parent.mkdir()
+        legacy.path.write_text(json.dumps({"highest_version": "0.2.0-dev30"}))
+        self.assertEqual(legacy.highest("app"), "0.2.0-dev30")
+        self.assertIsNone(legacy.highest("firmware"))
+
+    def test_latest_signed_picks_the_stream_by_tag_prefix(self):
+        files = {}
+        publish(files, "0.2.0-dev19")
+        publish(files, "1.0.0-rc1", kind="firmware")
+        tags = ["v0.2.0-dev19", "fw-v1.0.0-rc1", "v0.2.0-dev18", "fw-vgarbage", "nightly"]
+        net = FakeNet(files)
+        self.assertEqual(online.latest_signed(net, self.state, "app", tags).version, "0.2.0-dev19")
+        self.assertEqual(online.latest_signed(net, self.state, "firmware", tags).version, "1.0.0-rc1")
+
+    def test_listing_returns_tags_and_none_when_offline(self):
+        files = {online.RELEASES_URL: json.dumps([{"tag_name": "v1.0.0"}, {"tag_name": "fw-v1.0.0", "draft": True},
+                                                  "junk", {"tag_name": "fw-v0.9.0"}]).encode()}
+        self.assertEqual(online.fetch_listing(FakeNet(files)), ["v1.0.0", "fw-v0.9.0"])
+        self.assertIsNone(online.fetch_listing(FakeNet({})))
+
     def test_latest_signed_skips_a_release_without_a_manifest(self):
         files = {}
         publish(files, "0.2.0-dev19")
@@ -208,7 +263,7 @@ class ReleaseScriptTests(unittest.TestCase):
             env = {**os.environ, "WITS_RELEASE_SIGNING_KEY": PRIVATE}
             run = lambda *args: subprocess.run([sys.executable, str(script), *args], cwd=root, env=env,
                                                capture_output=True, text=True)
-            made = run("manifest", "--version", "0.2.0-dev99",
+            made = run("manifest", "--kind", "app", "--version", "0.2.0-dev99",
                        "--asset", "firmware=WITS-Deploy-Firmware-0.2.0-dev99.zip",
                        "--asset", "linux-x86_64=WITS-Deploy-0.2.0-dev99-Linux-x86_64.tar.gz",
                        "--out", "release-manifest.json")
@@ -220,3 +275,10 @@ class ReleaseScriptTests(unittest.TestCase):
             data = (root / "release-manifest.json").read_bytes()
             manifest = signing.verify_manifest(data, signing.sign(PRIVATE, data), [PUBLIC])
             self.assertEqual(sorted(manifest["assets"]), ["firmware", "linux-x86_64"])
+            self.assertEqual(manifest["kind"], "app")
+            fw = run("manifest", "--kind", "firmware", "--version", "1.0.0-rc1",
+                     "--asset", "firmware=WITS-Deploy-Firmware-0.2.0-dev99.zip", "--out", "fw.json")
+            self.assertEqual(fw.returncode, 0, fw.stderr)
+            fw_data = (root / "fw.json").read_bytes()
+            self.assertEqual(signing.verify_manifest(fw_data, signing.sign(PRIVATE, fw_data), [PUBLIC])["kind"], "firmware")
+            self.assertNotEqual(run("manifest", "--version", "1.0.0", "--asset", "firmware=x").returncode, 0)  # --kind required

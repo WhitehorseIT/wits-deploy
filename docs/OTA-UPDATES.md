@@ -126,8 +126,9 @@ need physical validation. See each model guide for its bring-up sequence.
 
 The board list's **Firmware** column is highlighted against the newest known release: green is
 current, yellow means an update is available, red means a critical update. At startup the app asks
-GitHub for the newest published release (anonymous requests; nothing about your boards is sent) and
-compares against that and the firmware bundled with the app; offline, only the bundled version is
+GitHub for the published releases (anonymous requests; nothing about your boards is sent) and compares
+each board against the newest firmware release (tags `fw-v<version>`) and the firmware bundled with the
+app; app releases (tags `v<version>`) only drive **Update app…**; offline, only the bundled version is
 used. To turn the check off, set the environment variable `WITS_DEPLOY_NO_UPDATE_CHECK=1`.
 
 Red comes only from a release's **signed manifest** (`critical_below`), never from release notes.

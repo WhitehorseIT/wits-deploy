@@ -46,7 +46,7 @@ def manifest(args):
             sys.exit(f"Bad --asset {item!r}; use LABEL=FILE with a lowercase label and an existing file.")
         assets[label] = {"name": path.name, "size": path.stat().st_size,
                          "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-    data = {"schema": 1, "product": "wits-deploy", "version": args.version,
+    data = {"schema": 1, "product": "wits-deploy", "kind": args.kind, "version": args.version,
             "critical_below": args.critical_below or None, "assets": assets}
     if args.add_key:
         data["add_keys"] = args.add_key
@@ -80,6 +80,8 @@ def main():
     p.add_argument("--key-file", default=str(DEFAULT_KEY))
     p.set_defaults(run=keygen)
     p = commands.add_parser("manifest")
+    p.add_argument("--kind", choices=("app", "firmware"), required=True,
+                   help="app releases are tagged vX, firmware releases fw-vX")
     p.add_argument("--version", required=True)
     p.add_argument("--critical-below")
     p.add_argument("--add-key", action="append")

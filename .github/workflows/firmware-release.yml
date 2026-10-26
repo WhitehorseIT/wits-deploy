@@ -1,0 +1,77 @@
+name: Firmware release
+# Firmware release. Push a tag such as fw-v1.0.0-rc1 (it must match src/firmware_version.h) to build all
+# three board images, sign the manifest and publish. Cut one only when the firmware actually changes.
+on:
+  push:
+    tags:
+      - 'fw-v*'
+permissions:
+  contents: read
+jobs:
+  firmware:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Check the tag and the documentation
+        run: |
+          version=$(sed -n 's/^constexpr char VERSION\[\] = "\([^"]*\)";$/\1/p' src/firmware_version.h)
+          [ "${GITHUB_REF_NAME}" = "fw-v${version}" ] || { echo "Tag ${GITHUB_REF_NAME} does not match firmware version ${version}" >&2; exit 1; }
+          python scripts/check-docs.py
+      - name: Build all board images
+        env:
+          WITS_RELEASE_ROOT: ${{ github.workspace }}/build/firmware
+          PLATFORMIO_SETTING_ENABLE_TELEMETRY: 'no'
+        run: |
+          python -m venv .venv-pio
+          .venv-pio/bin/python -m pip install platformio==6.2.0
+          version=$(sed -n 's/^constexpr char VERSION\[\] = "\([^"]*\)";$/\1/p' src/firmware_version.h)
+          for target in tqtpro waveshare7 waveshare147; do
+            bash scripts/build-release.sh "$version" "$target"
+          done
+      - name: Package the firmware bundle
+        run: |
+          python -m pip install -r desktop/requirements-build.txt
+          version=$(sed -n 's/^constexpr char VERSION\[\] = "\([^"]*\)";$/\1/p' src/firmware_version.h)
+          python scripts/package-ota-release.py "build/firmware/$version/WITS-Deploy-Release-$version.ota.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware
+          path: build/firmware/*
+          if-no-files-found: error
+  publish:
+    needs: firmware
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r desktop/requirements-build.txt
+      - uses: actions/download-artifact@v7
+        with:
+          name: firmware
+          path: build/firmware
+      - name: Build, sign and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WITS_RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^constexpr char VERSION\[\] = "\([^"]*\)";$/\1/p' src/firmware_version.h)
+          [ -n "$WITS_RELEASE_SIGNING_KEY" ] || { echo "The RELEASE_SIGNING_KEY secret is not set." >&2; exit 1; }
+          mkdir -p out
+          cp "build/firmware/$version/WITS-Deploy-Firmware-$version.zip" "build/firmware/$version/WITS-Deploy-Firmware-$version.zip.sha256" out/
+          critical=""
+          [ -f docs/release-notes/critical-below-firmware.txt ] && critical=$(tr -d '[:space:]' < docs/release-notes/critical-below-firmware.txt)
+          python scripts/release-signing.py manifest --kind firmware --version "$version" ${critical:+--critical-below "$critical"} \
+            --asset "firmware=out/WITS-Deploy-Firmware-$version.zip" --out out/release-manifest.json
+          python scripts/release-signing.py sign out/release-manifest.json
+          prerelease=""
+          case "$version" in *-dev*|*-rc*) prerelease="--prerelease" ;; esac
+          gh release create "fw-v$version" $prerelease --title "WITS Deploy firmware $version" \
+            --notes-file "docs/release-notes/firmware-$version.md" out/*

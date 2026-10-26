@@ -50,17 +50,22 @@ tests of flashing, boot behavior, or interrupted transfers.
 
 Releases are built, signed and published by GitHub Actions; see [release signing](RELEASE-SIGNING.md).
 
-1. Set the same version in `src/firmware_version.h`, `desktop/wits_keyboard/__init__.py` and
-   `desktop/packaging/firmware-release.txt`, and write `docs/release-notes/<version>.md` (with
-   `## What's new` and `## Files` sections).
+The app and the firmware have separate versions and separate releases; see
+[compatibility](COMPATIBILITY.md). A firmware release is cut only when the firmware code changes.
+
+1. **Firmware release:** set the version in `src/firmware_version.h` and write
+   `docs/release-notes/firmware-<version>.md`. **App release:** set the version in
+   `desktop/wits_keyboard/__init__.py`, write `docs/release-notes/<version>.md`, and set
+   `desktop/packaging/firmware-release.txt` to the published firmware release the app should bundle
+   (publish the firmware release first). Notes need `## What's new` and `## Files` sections.
 2. **Review the documentation** against what changed (checklist below).
 3. Run the checks: the desktop tests above (they include `scripts/check-docs.py`), and
    `.venv-pio/bin/pio run -e tqtpro -e waveshare7 -e waveshare147`.
-4. Push, optionally run the **Desktop binaries** workflow on the commit as a dry run, then push a tag
-   `v<version>`. The **Release** workflow checks the tag against the version files, builds firmware and
-   the Linux app, signs the manifest and creates the GitHub release.
-
-Firmware and app versions can differ in principle, but the release workflow uses one version for both.
+4. Push, then push a tag: `fw-v<firmware version>` runs the **Firmware release** workflow and
+   `v<app version>` runs the **Release** workflow. Each checks the tag against the version files, builds,
+   signs the manifest and creates the GitHub release. The **Desktop binaries** workflow is an optional dry
+   run of the app build; it builds the firmware from source, so it needs the bundled firmware version to
+   equal `src/firmware_version.h`.
 
 ### Documentation checklist
 

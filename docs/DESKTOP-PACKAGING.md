@@ -94,8 +94,10 @@ interpreter.
 
 ## GitHub Actions
 
-- **Release** (tag `v<version>`): builds firmware and the Linux app, writes and signs the release
-  manifest, and publishes a GitHub release. See [release signing](RELEASE-SIGNING.md).
+- **Release** (tag `v<version>`): builds the Linux app, bundling the already published firmware named in
+  `desktop/packaging/firmware-release.txt`, then signs the manifest and publishes the app release.
+- **Firmware release** (tag `fw-v<version>`): builds the three board images, signs the manifest and
+  publishes the firmware release. See [release signing](RELEASE-SIGNING.md).
 - **Desktop binaries** (manual, or a `desktop-v*` tag): builds the three firmware images once, then the
   desktop app on `ubuntu-22.04` and `windows-2022`, and uploads them as workflow artifacts. It does not
   publish a release or send the builds anywhere. Use it to test a commit before tagging.

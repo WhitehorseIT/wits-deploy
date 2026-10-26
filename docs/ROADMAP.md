@@ -7,9 +7,12 @@ Plans, not promises. Items move as hardware testing and releases dictate.
 - **Signed releases and online firmware** (0.2.0-dev19): release manifests are signed in CI and the
   app downloads and verifies firmware from published releases.
 - **Packaged Linux self-update** (0.2.0-dev20): see [release signing](RELEASE-SIGNING.md) and below.
+- **Separate app and firmware releases** (app 0.2.0-dev23, firmware 1.0.0-rc1): see
+  [compatibility](COMPATIBILITY.md).
 
 ## Next
 
+- Firmware 1.0.0 once the release candidate passes its hardware checks.
 - **Self-update for Windows (high priority).** The Windows app runs from Python, so an update would
   download a signed source archive for the release, verify it against the signed manifest, unpack it
   beside the running copy, reuse the existing Python environment unless the dependencies changed (then

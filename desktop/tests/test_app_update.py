@@ -215,7 +215,7 @@ class WindowTests(unittest.TestCase):
             with patch("wits_keyboard.app.AsyncRunner"), patch("wits_keyboard.app.QSettings", return_value=settings):
                 window = MainWindow()
             release = SignedRelease("0.2.0-dev20", None, {"linux-x86_64": {}})
-            window.signed_release = release
+            window.signed_app = release
             with patch.object(app_update, "unavailable_reason", return_value="nope"):
                 window._offer_app_update()
             self.assertTrue(window.app_update_button.isHidden())

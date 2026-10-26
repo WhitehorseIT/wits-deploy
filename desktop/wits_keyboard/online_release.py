@@ -13,12 +13,15 @@ from pathlib import Path, PurePosixPath
 
 from . import __version__
 from .firmware_update import load_release
-from .release_check import RELEASES_URL, DISABLE_ENV, from_release_list, parse_version
+from .release_check import DISABLE_ENV, parse_version
 from .release_keys import RELEASE_PUBLIC_KEYS
 from .runtime import data_directory
 from .signing import SignatureError, check_file, verify_manifest
 
 DOWNLOAD_BASE = "https://github.com/WhitehorseIT/wits-deploy/releases/download"
+RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases?per_page=50"
+# The app and the firmware are released separately, each with its own tag prefix and signed manifest.
+KINDS = {"app": "v", "firmware": "fw-v"}
 MANIFEST_NAME, SIGNATURE_NAME = "release-manifest.json", "release-manifest.json.sig"
 MAX_UNPACKED_BYTES, MAX_MEMBERS = 64 * 1024 * 1024, 200
 
@@ -28,9 +31,14 @@ class SignedRelease:
     version: str
     critical_below: str | None
     assets: dict
+    kind: str = "app"
+
+    @property
+    def tag(self) -> str:
+        return KINDS[self.kind] + self.version
 
     def asset_url(self, label: str) -> str:
-        return f"{DOWNLOAD_BASE}/v{self.version}/{self.assets[label]['name']}"
+        return f"{DOWNLOAD_BASE}/{self.tag}/{self.assets[label]['name']}"
 
 
 def _open(url: str, timeout: float, urlopen):
@@ -64,15 +72,19 @@ class TrustState:
         extra = [key for key in self.load().get("keys", []) if isinstance(key, str)]
         return tuple(dict.fromkeys((*RELEASE_PUBLIC_KEYS, *extra)))
 
-    def highest(self) -> str | None:
-        value = self.load().get("highest_version")
+    def highest(self, kind: str = "app") -> str | None:
+        state = self.load()
+        table = state.get("highest") if isinstance(state.get("highest"), dict) else {}
+        value = table.get(kind) or (state.get("highest_version") if kind == "app" else None)  # older state file
         return value if isinstance(value, str) and parse_version(value) else None
 
-    def record(self, version: str, added_keys) -> None:
+    def record(self, version: str, added_keys, kind: str = "app") -> None:
         state = self.load()
-        highest = self.highest()
+        highest = self.highest(kind)
+        table = dict(state["highest"]) if isinstance(state.get("highest"), dict) else {}
         if highest is None or parse_version(version) > parse_version(highest):
-            state["highest_version"] = version
+            table[kind] = version
+        state["highest"] = table
         state["keys"] = sorted({*state.get("keys", []), *added_keys})
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(".tmp")
@@ -80,38 +92,49 @@ class TrustState:
         os.replace(temporary, self.path)
 
 
-def fetch_signed(version: str, urlopen=urllib.request.urlopen, state: TrustState | None = None) -> SignedRelease:
+def fetch_signed(version: str, urlopen=urllib.request.urlopen, state: TrustState | None = None,
+                 kind: str = "app") -> SignedRelease:
     """Download and verify one release's manifest. Raises SignatureError (or OSError offline)."""
     state = state or TrustState()
-    base = f"{DOWNLOAD_BASE}/v{version}"
+    base = f"{DOWNLOAD_BASE}/{KINDS[kind]}{version}"
     manifest_bytes = _read(f"{base}/{MANIFEST_NAME}", 64 * 1024, urlopen)
     signature = _read(f"{base}/{SIGNATURE_NAME}", 1024, urlopen).decode("ascii", "replace")
     data = verify_manifest(manifest_bytes, signature, state.keys())
     if data["version"] != version:
         raise SignatureError("The signed manifest is for a different version")
-    highest = state.highest()
+    if data.get("kind", "app") != kind:  # manifests from before the split have no kind and are app releases
+        raise SignatureError("The signed manifest is for a different kind of release")
+    highest = state.highest(kind)
     if highest and parse_version(data["version"]) < parse_version(highest):
         raise SignatureError("Refusing an older release than one already seen (possible downgrade)")
-    state.record(data["version"], data.get("add_keys", []))
-    return SignedRelease(data["version"], data.get("critical_below"), data["assets"])
+    state.record(data["version"], data.get("add_keys", []), kind)
+    return SignedRelease(data["version"], data.get("critical_below"), data["assets"], kind)
 
 
-def latest_signed(urlopen=urllib.request.urlopen, state: TrustState | None = None) -> SignedRelease | None:
-    """The newest release whose manifest verifies, or None (offline, opted out, or nothing signed yet)."""
+def fetch_listing(urlopen=urllib.request.urlopen) -> list[str] | None:
+    """Tags of the published (non-draft) releases, or None when offline or opted out. One API request."""
     if os.environ.get(DISABLE_ENV):
         return None
     try:
         listing = json.loads(_read(RELEASES_URL, 2_000_000, urlopen))
-        if not isinstance(listing, list):
-            return None
-        tags = sorted({t for r in listing if isinstance(r, dict) and not r.get("draft")
-                       and parse_version(t := str(r.get("tag_name", "")).lstrip("v"))},
-                      key=parse_version, reverse=True)
     except Exception:
         return None
-    for version in tags[:3]:  # a newest release without a manifest falls back to the one before it
+    if not isinstance(listing, list):
+        return None
+    return [str(r.get("tag_name", "")) for r in listing if isinstance(r, dict) and not r.get("draft")]
+
+
+def latest_signed(urlopen=urllib.request.urlopen, state: TrustState | None = None,
+                  kind: str = "app", tags: list[str] | None = None) -> SignedRelease | None:
+    """The newest release of this kind whose manifest verifies, or None (offline, opted out, or nothing signed)."""
+    if tags is None:
+        tags = fetch_listing(urlopen)
+    prefix = KINDS[kind]
+    versions = sorted({t[len(prefix):] for t in tags or () if t.startswith(prefix) and parse_version(t[len(prefix):])},
+                      key=parse_version, reverse=True)
+    for version in versions[:3]:  # a newest release without a manifest falls back to the one before it
         try:
-            return fetch_signed(version, urlopen, state)
+            return fetch_signed(version, urlopen, state, kind)
         except Exception:
             continue
     return None

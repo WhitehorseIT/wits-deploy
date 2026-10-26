@@ -1,15 +1,9 @@
 """Compare board firmware with the newest known release (notify only; nothing is downloaded)."""
 from __future__ import annotations
 
-import json
-import os
 import re
-import urllib.request
 from dataclasses import dataclass
 
-from . import __version__
-
-RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases?per_page=30"
 DISABLE_ENV = "WITS_DEPLOY_NO_UPDATE_CHECK"
 _STAGE = {"dev": 0, "rc": 1}
 
@@ -53,32 +47,12 @@ def classify(board_version: str, latest: Latest | None) -> str | None:
     return UPDATE if board < target else CURRENT
 
 
-def from_release_json(data: dict) -> Latest | None:
-    tag = str(data.get("tag_name") or "").strip().lstrip("v")
-    if not parse_version(tag):
-        return None
-    return Latest(tag)  # release notes are not trusted for critical flags; see signing.py
-
-
-def from_release_list(releases) -> Latest | None:
-    """Newest published release, prereleases included (the project is still on test builds)."""
-    if not isinstance(releases, list):
-        return None
-    return newest(*(from_release_json(r) for r in releases
-                    if isinstance(r, dict) and not r.get("draft")))
-
-
-def fetch_latest(url: str = RELEASES_URL, timeout: float = 6.0) -> Latest | None:
-    """Ask GitHub for the newest published release. Sends no identifying data; None on any failure."""
-    if os.environ.get(DISABLE_ENV):
-        return None
-    request = urllib.request.Request(url, headers={
-        "Accept": "application/vnd.github+json", "User-Agent": f"WITS-Deploy/{__version__}"})
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return from_release_list(json.loads(response.read(2_000_000)))
-    except Exception:
-        return None
+def newest_from_tags(tags, prefix: str) -> Latest | None:
+    """The newest version among release tags that start with ``prefix`` ("v" for the app, "fw-v" for
+    firmware). Tags of the other stream, and anything unparseable, are ignored."""
+    versions = [t[len(prefix):] for t in tags if isinstance(t, str) and t.startswith(prefix)
+                and parse_version(t[len(prefix):]) and (prefix != "v" or not t.startswith("fw-"))]
+    return Latest(max(versions, key=parse_version)) if versions else None
 
 
 def bundled_latest() -> Latest | None:

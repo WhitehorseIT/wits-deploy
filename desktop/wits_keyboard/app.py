@@ -15,7 +15,7 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import Any
 
-from PySide6.QtCore import QObject, QSettings, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEventLoop, QObject, QSettings, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QApplication,
@@ -79,6 +79,35 @@ class PendingDelivery:
     deliver: Callable[[], None]
 
 
+SHUTDOWN_TIMEOUT_S = 3  # most time the app waits for boards to release their Bluetooth links on exit
+
+
+class ClosingNotice(QDialog):
+    """Explains the short wait on exit: boards are disconnected cleanly so they accept a new connection at once."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent, Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
+        self.setModal(True)
+        self.remaining_ms = SHUTDOWN_TIMEOUT_S * 1000
+        layout = QVBoxLayout(self)
+        self.label = QLabel()
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.label)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+        self.timer.start(100)
+        self._tick(first=True)
+
+    def _tick(self, first: bool = False) -> None:
+        if not first:
+            self.remaining_ms = max(self.remaining_ms - 100, 0)
+        seconds = (self.remaining_ms + 999) // 1000
+        self.label.setText(
+            "Disconnecting your boards before closing\n"
+            f"Closing in up to {seconds} second{'s' if seconds != 1 else ''}\n\n"
+            "This short wait is intentional: it lets each board release its Bluetooth link cleanly.")
+
+
 class UiBridge(QObject):
     scan_finished = Signal(object)
     task_failed = Signal(str)
@@ -88,6 +117,7 @@ class UiBridge(QObject):
     passkey_finished = Signal(str)
     management_finished = Signal(str, str)
     latest_release = Signal(object)  # (newest tag, signed release or None), or None when the check failed
+    shutdown_done = Signal()  # boards released; the window may close
     update_aborted = Signal()  # the update could not start; restore Auto-connect
     update_ready = Signal(str)  # other boards disconnected; open the updater for this address
 
@@ -166,7 +196,7 @@ class AsyncRunner:
             return
         future = asyncio.run_coroutine_threadsafe(controller.disconnect_all(), self.loop)
         try:
-            future.result(timeout=3)
+            future.result(timeout=SHUTDOWN_TIMEOUT_S)
         except Exception as error:
             logger.warning("Shutdown disconnect failed error=%s", safe_error(error))
         self.loop.call_soon_threadsafe(self.loop.stop)
@@ -196,6 +226,7 @@ class MainWindow(QMainWindow):
         self.management_pending: dict[str, tuple[str, str, float]] = {}
         self.auto_connect_preferences: set[str] = set()
         self.latest_firmware = release_check.bundled_latest()
+        self.closing_notice_shown = False
         self.signed_release = None  # newest release whose signature verified; enables online firmware
         self._auto_connect_restore: set[str] = set()  # boards whose Auto-connect is off only during an update
         self.auto_management_tokens: dict[str, str] = {}
@@ -1388,8 +1419,32 @@ class MainWindow(QMainWindow):
         for dialog in tuple(self.passkey_dialogs.values()):
             dialog.reject()
         logger.info("Main window closing")
-        self.runner.close(self.controller)
+        self._release_boards()
         event.accept()
+
+    def _release_boards(self) -> None:
+        """Disconnect every board before exit, keeping the window responsive and explaining any wait."""
+        controller = self.controller
+        busy = (any(session.state.connected for session in controller.sessions.values())
+                or controller.connect_tasks or controller.repair_tasks)
+        if not busy:
+            self.runner.close(controller)  # nothing to wait for
+            return
+        loop = QEventLoop(self)
+        self.bridge.shutdown_done.connect(loop.quit)
+
+        def work() -> None:
+            try:
+                self.runner.close(controller)
+            finally:
+                self.bridge.shutdown_done.emit()
+        threading.Thread(target=work, name="wits-shutdown", daemon=True).start()
+        notice = ClosingNotice(self)
+        QTimer.singleShot(400, lambda: (notice.show(), setattr(self, "closing_notice_shown", True)))
+        QTimer.singleShot((SHUTDOWN_TIMEOUT_S + 2) * 1000, loop.quit)  # never hang on exit
+        loop.exec()
+        notice.close()
+        self.bridge.shutdown_done.disconnect(loop.quit)
 
 
 def _confirm_update(window: "MainWindow") -> None:

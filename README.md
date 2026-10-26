@@ -85,8 +85,10 @@ Instead, run the app from source with Python:
    from inside the ZIP. Then open the extracted `desktop` folder.
 3. Run `SETUP-WINDOWS.cmd` once, then `START-WINDOWS.cmd` to start the app.
 
-Pair each board in Windows **Settings > Bluetooth & devices** first, then connect in the app.
-Windows support is still being tested; see the [desktop guide](desktop/README.md).
+Hold a board's pairing button until a PIN shows on its screen, then choose **Connect** in the app and type
+the PIN into its prompt. If that does not work, pair the board in Windows **Settings > Bluetooth & devices**
+first and then connect in the app. Pairing from inside the app on Windows is new and still being tested;
+see the [desktop guide](desktop/README.md).
 
 ### From source (any platform)
 

@@ -45,10 +45,11 @@ computer, or replacing a cleared bond, needs the board's physical pairing window
   and choose **Connect**. On Linux the app registers its own pairing agent and opens a PIN dialog;
   enter the six-digit PIN shown on the board. This does not change the system's default Bluetooth
   agent.
-- **Windows:** pair through **Settings > Bluetooth & devices** first, then choose **Connect** in the
-  app. The Windows Bluetooth backend only supports confirmation-style pairing, so an app-initiated
-  fresh pairing may not handle the board's PIN. If a bond goes stale, remove it in Windows Settings
-  and pair again.
+- **Windows:** the app pairs the board itself, the same way as on Linux: open the board's pairing
+  window, choose **Connect** and type the PIN into the app's prompt. (The Python Bluetooth library cannot
+  do PIN pairing on Windows, so the app asks Windows for it directly.) This is new and still being
+  tested; if it fails, pair through **Settings > Bluetooth & devices** first and then choose **Connect**.
+  If a bond goes stale, remove it in Windows Settings and pair again.
 - **Stale bond:** if a board was factory-flashed or had its bonds cleared, the computer may still
   hold the old one. Hold the board's pairing button until its PIN shows, highlight it, and choose
   **Re-pair**. This removes only that board's local bond.

@@ -86,8 +86,9 @@ class BoardSession:
         self.connecting = True
         self._emit("progress", message="Pairing and connecting…")
         app_pairing = sys.platform == "linux" and self.pairing_callback is not None
+        windows_pairing = sys.platform == "win32" and self.pairing_callback is not None
         logger.info("Connect begin address=%s name=%s pairing=%s timeout=90", self.address,
-                    self.name, "app-agent" if app_pairing else "OS")
+                    self.name, "app-agent" if app_pairing else "app-windows" if windows_pairing else "OS")
         discovery = None
         try:
             if not allow_pairing and not await has_saved_bond(self.device):
@@ -112,11 +113,18 @@ class BoardSession:
                     "PIN pairing completed; connecting…" if fresh_pairing else
                     "Using saved pairing; connecting without another PIN…"
                 ))
+            if windows_pairing and allow_pairing:
+                from .pairing_windows import pair_windows
+                fresh_pairing = await pair_windows(self.device, self.pairing_callback)
+                self._emit("progress", message=(
+                    "PIN pairing completed; connecting…" if fresh_pairing else
+                    "Using saved pairing; connecting without another PIN…"
+                ))
             self.client = self.client_factory(
                 self.device,
                 disconnected_callback=self._on_disconnected,
                 services=[protocol.SERVICE_UUID],
-                pair=allow_pairing and not app_pairing,
+                pair=allow_pairing and not app_pairing and not windows_pairing,
                 timeout=90.0 if allow_pairing else 25.0,
             )
             logger.debug("Awaiting Bleak connect address=%s", self.address)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 import os
 import platform
 import re
@@ -120,6 +121,7 @@ def configure_logging() -> Path:
     except OSError:
         pass
 
+    _enable_crash_traces()
     logger = logging.getLogger("wits_keyboard.startup")
     logger.info("=" * 72)
     logger.info(
@@ -131,6 +133,22 @@ def configure_logging() -> Path:
     logger.info("Diagnostic log=%s", LOG_PATH)
     logger.info("Started from executable=%s launched by %s", sys.executable, _parent_command())
     return LOG_PATH
+
+
+_crash_stream = None
+
+
+def _enable_crash_traces() -> None:
+    """After a hard crash (a segmentation fault, say) write every thread's Python stack to crash-traces.log."""
+    global _crash_stream
+    try:
+        import faulthandler
+        _crash_stream = open(LOG_DIRECTORY / "crash-traces.log", "a", buffering=1, encoding="utf-8")
+        _crash_stream.write(f"--- started {datetime.now().isoformat(timespec='seconds')} ---\n")
+        os.chmod(LOG_DIRECTORY / "crash-traces.log", 0o600)
+        faulthandler.enable(file=_crash_stream, all_threads=True)
+    except Exception:
+        pass  # diagnostics only; never stop the app from starting
 
 
 def _parent_command() -> str:

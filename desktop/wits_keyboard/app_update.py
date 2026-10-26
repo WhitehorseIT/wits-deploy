@@ -27,12 +27,13 @@ from .signing import SignatureError, check_file
 ASSET = "linux-x86_64"
 STATE_NAME = "app-update.json"
 MAX_MEMBERS, MAX_UNPACKED = 20_000, 3 << 30
-RESTART_SCRIPT = r'''new="$1"; old="$2"; delay="$3"; grace="$4"; state="$5"
+RESTART_SCRIPT = r'''new="$1"; old="$2"; delay="$3"; state="$4"
 sleep "$delay"
-start=$(date +%s)
 "$new/WITS-Deploy"
 code=$?
-if [ "$code" -ne 0 ] && [ $(( $(date +%s) - start )) -lt "$grace" ]; then
+# The new version removes the marker once it has run healthily for a while. Fall back to the old
+# version only while the marker is still there, that is, if the new one never got properly started.
+if [ "$code" -ne 0 ] && [ -f "$state" ]; then
   rm -f "$state"
   exec "$old/WITS-Deploy"
 fi
@@ -133,9 +134,8 @@ def read_pending(directory: Path | None = None) -> dict | None:
         return None
 
 
-def restart_command(new: Path, old: Path, delay: float = 2, grace: float = 25, directory: Path | None = None):
-    return ["/bin/sh", "-c", RESTART_SCRIPT, "wits-restart", str(new), str(old), str(delay), str(grace),
-            str(state_path(directory))]
+def restart_command(new: Path, old: Path, delay: float = 2, directory: Path | None = None):
+    return ["/bin/sh", "-c", RESTART_SCRIPT, "wits-restart", str(new), str(old), str(delay), str(state_path(directory))]
 
 
 def restart(new: Path, directory: Path | None = None) -> None:

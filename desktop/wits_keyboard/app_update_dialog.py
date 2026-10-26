@@ -1,14 +1,18 @@
 """Download, verify and install the newest signed app build, then restart into it."""
 import threading
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout
 from . import __version__, app_update
 from .logging_config import safe_error
 
 
-class AppUpdateDialog(QDialog):
+class _Relay(QObject):
+    """Signals the download thread emits; the thread never holds the dialog widget itself."""
     progress = Signal(int, int)
     finished_download = Signal(object, str)  # new install folder or None, message
+
+
+class AppUpdateDialog(QDialog):
 
     def __init__(self, release, parent=None):
         super().__init__(parent)
@@ -41,8 +45,9 @@ class AppUpdateDialog(QDialog):
         row.addWidget(self.go)
         row.addWidget(self.close_button)
         layout.addLayout(row)
-        self.progress.connect(self._progress)
-        self.finished_download.connect(self._finished)
+        self._relay = _Relay()
+        self._relay.progress.connect(self._progress)
+        self._relay.finished_download.connect(self._finished)
 
     def _start(self):
         self.busy = True
@@ -51,14 +56,16 @@ class AppUpdateDialog(QDialog):
         self.close_button.setText("Cancel")
         self.status.setText("Downloading…")
 
+        release, relay, cancelled = self.release, self._relay, self.cancelled
+
         def work():
             try:
-                folder = app_update.download_app(self.release, progress=self.progress.emit, cancelled=self.cancelled)
-                self.finished_download.emit(folder, "")
+                folder = app_update.download_app(release, progress=relay.progress.emit, cancelled=cancelled)
+                relay.finished_download.emit(folder, "")
             except InterruptedError:
-                self.finished_download.emit(None, "Canceled; nothing was changed.")
+                relay.finished_download.emit(None, "Canceled; nothing was changed.")
             except Exception as error:
-                self.finished_download.emit(None, safe_error(error))
+                relay.finished_download.emit(None, safe_error(error))
         threading.Thread(target=work, name="wits-app-download", daemon=True).start()
 
     def _progress(self, done, total):

@@ -49,9 +49,13 @@ def choose_manifest(parent, title, settings=None):
     dialog = QFileDialog(parent, title, str(start_directory(settings.value(REMEMBERED_KEY))),
                          "WITS OTA manifest (*.ota.json)")
     dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-    dialog.setIconProvider(PlainIcons())
-    if dialog.exec() and dialog.selectedFiles():
-        chosen = dialog.selectedFiles()[0]
-        settings.setValue(REMEMBERED_KEY, str(Path(chosen).parent))
-        return chosen
-    return ""
+    icons = PlainIcons()  # the dialog does not own its icon provider, so keep it alive for the dialog's lifetime
+    dialog.setIconProvider(icons)
+    try:
+        if dialog.exec() and dialog.selectedFiles():
+            chosen = dialog.selectedFiles()[0]
+            settings.setValue(REMEMBERED_KEY, str(Path(chosen).parent))
+            return chosen
+        return ""
+    finally:
+        dialog.deleteLater()

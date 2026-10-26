@@ -911,7 +911,11 @@ class MainWindow(QMainWindow):
     def _flash_usb(self) -> None:
         from .usb_flash_dialog import UsbFlashDialog
         self._cancel_delivery("USB flasher opened")
-        UsbFlashDialog(self).exec()
+        dialog = UsbFlashDialog(self)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
 
     def _update_firmware(self) -> None:
         addresses = self._require_management_selection()
@@ -968,10 +972,12 @@ class MainWindow(QMainWindow):
             self._restore_auto_connect()
             return
         self._cancel_delivery("Firmware updater opened")
+        dialog = FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self,
+                                signed_release=self.signed_firmware)
         try:
-            FirmwareDialog(self.runner, self.controller, address, self.items[address].text(1), self,
-                           signed_release=self.signed_firmware).exec()
+            dialog.exec()
         finally:
+            dialog.deleteLater()  # delete it here, on the interface thread, rather than leave it parented
             self._restore_auto_connect()
 
     FIRMWARE_COLORS = {release_check.CURRENT: "#145c43", release_check.UPDATE: "#8a6500",
@@ -1046,12 +1052,15 @@ class MainWindow(QMainWindow):
         if release is None or app_update.unavailable_reason(release):
             return
         dialog = AppUpdateDialog(release, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.installed is not None:
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        installed = dialog.installed
+        dialog.deleteLater()
+        if accepted and installed is not None:
             try:
-                app_update.restart(dialog.installed)
+                app_update.restart(installed)
             except OSError as error:
                 self._log(f"Could not restart into the new version: {error}")
-                QMessageBox.warning(self, "Restart failed", f"The update is installed in {dialog.installed}, "
+                QMessageBox.warning(self, "Restart failed", f"The update is installed in {installed}, "
                                     f"but the app could not restart itself: {error}")
                 return
             self.close()

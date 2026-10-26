@@ -131,12 +131,15 @@ class RestartTests(unittest.TestCase):
         exe.chmod(0o755)
         return folder
 
-    def launch(self, new_body, grace=25):
+    def launch(self, new_body, confirmed=False):
+        """Run the restart wrapper. ``confirmed`` models a new version that removed the marker after a healthy start."""
         new, old = self.program("new", new_body), self.program("old", f"touch {self.marker}\n")
         app_update.write_pending(old, new, self.root)
-        subprocess.run(app_update.restart_command(new, old, delay=0, grace=grace, directory=self.root), timeout=20)
+        if confirmed:
+            (new / "WITS-Deploy").write_text(f"#!/bin/sh\nrm -f {app_update.state_path(self.root)}\n" + new_body)
+        subprocess.run(app_update.restart_command(new, old, delay=0, directory=self.root), timeout=20)
 
-    def test_a_new_version_that_fails_at_once_falls_back_to_the_old_one(self):
+    def test_a_new_version_that_fails_before_it_is_confirmed_falls_back_to_the_old_one(self):
         self.launch("exit 1\n")
         self.assertTrue(self.marker.exists())
         self.assertIsNone(app_update.read_pending(self.root))
@@ -145,8 +148,8 @@ class RestartTests(unittest.TestCase):
         self.launch("exit 0\n")
         self.assertFalse(self.marker.exists())
 
-    def test_a_failure_after_the_grace_period_is_not_rolled_back(self):
-        self.launch("exit 1\n", grace=0)
+    def test_a_crash_after_the_new_version_was_confirmed_is_never_rolled_back(self):
+        self.launch("sleep 1\nkill -KILL $$\n", confirmed=True)  # however long it ran, it had proved itself
         self.assertFalse(self.marker.exists())
 
 

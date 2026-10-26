@@ -1,7 +1,7 @@
 """App-managed firmware upload through the selected board's encrypted BLE link."""
 import asyncio
 import threading
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel,
                               QProgressBar, QPushButton, QVBoxLayout)
 from .firmware_update import BOARD_NAMES, load_release
@@ -10,10 +10,15 @@ from .firmware_bundle import bundled_manifest
 from .file_choice import choose_manifest
 
 
-class FirmwareDialog(QDialog):
+class _Relay(QObject):
+    """Signals the worker threads emit. Worker threads hold this, never the dialog widget itself, so a
+    widget wrapper can never be released from a non-interface thread."""
     progress = Signal(str, int)
     finished_upload = Signal(bool, str)
     downloaded = Signal(object, str)  # manifest path or None, message
+
+
+class FirmwareDialog(QDialog):
 
     def __init__(self, runner, controller, address, name="Selected board", parent=None, signed_release=None):
         super().__init__(parent)
@@ -64,9 +69,10 @@ class FirmwareDialog(QDialog):
         row.addWidget(self.upload)
         row.addWidget(self.close_button)
         layout.addLayout(row)
-        self.progress.connect(self._progress)
-        self.finished_upload.connect(self._finished)
-        self.downloaded.connect(self._downloaded)
+        self._relay = _Relay()
+        self._relay.progress.connect(self._progress)
+        self._relay.finished_upload.connect(self._finished)
+        self._relay.downloaded.connect(self._downloaded)
         try:
             path = bundled_manifest()
             if path:
@@ -82,18 +88,18 @@ class FirmwareDialog(QDialog):
 
     def _download(self):
         from . import online_release
-        release = self.signed_release
+        release, relay = self.signed_release, self._relay
         self.download.setEnabled(False)
         self.status.setText(f"Downloading firmware {release.version}…")
 
         def work():
             try:
                 path = online_release.download_firmware(
-                    release, progress=lambda done, total: self.progress.emit(
+                    release, progress=lambda done, total: relay.progress.emit(
                         f"Downloading firmware {release.version}… {done // 1024:,} of {total // 1024:,} KiB", 0))
-                self.downloaded.emit(path, "")
+                relay.downloaded.emit(path, "")
             except Exception as error:
-                self.downloaded.emit(None, safe_error(error))
+                relay.downloaded.emit(None, safe_error(error))
         threading.Thread(target=work, name="wits-firmware-download", daemon=True).start()
 
     def _downloaded(self, path, message):
@@ -124,14 +130,16 @@ class FirmwareDialog(QDialog):
         self.choose.setEnabled(False)
         self.upload.setEnabled(False)
         self.close_button.setText("Cancel update")
+        controller, address, image = self.controller, self.address, self.image
+        cancelled, relay = self.cancelled, self._relay
         async def work():
             try:
-                await self.controller.update_firmware(self.address, self.image, self.progress.emit, self.cancelled)
+                await controller.update_firmware(address, image, relay.progress.emit, cancelled)
                 return True, "Update verified."
             except asyncio.CancelledError:
                 return False, "Canceled; the board retains its existing firmware."
-        self.runner.submit(work(), on_success=lambda result: self.finished_upload.emit(*result),
-            on_error=lambda error: self.finished_upload.emit(False, safe_error(error)), operation="firmware upload")
+        self.runner.submit(work(), on_success=lambda result: relay.finished_upload.emit(*result),
+            on_error=lambda error: relay.finished_upload.emit(False, safe_error(error)), operation="firmware upload")
 
     def _cancel_or_close(self):
         if self.busy:

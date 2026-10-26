@@ -653,6 +653,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue("ui/splitter_sizes", self.main_splitter.sizes())
 
     def _log(self, message: str) -> None:
+        logger.info("Event log: %s", message)  # the on-screen list is short-lived; keep a copy in the log file
         self.event_log.insertItem(0, message)
         while self.event_log.count() > 200:
             self.event_log.takeItem(self.event_log.count() - 1)

@@ -289,7 +289,8 @@ async def upload_image(client, image: FirmwareImage, progress: Callable[[str, in
         verified = True
         logger.info("BLE OTA verified board=%s version=%s seconds=%.2f", image.board, image.version,
                     asyncio.get_running_loop().time() - started_at)
-        progress("Verified. Board is restarting into programming mode.", 100)
+        progress("Verified. The board is restarting in HID mode (boards updated from firmware older than "
+                 "0.2.0-dev17 start in PROGRAM instead).", 100)
     finally:
         if began and not verified and client.is_connected:
             logger.info("BLE OTA incomplete; requesting abort before disconnect/retry")

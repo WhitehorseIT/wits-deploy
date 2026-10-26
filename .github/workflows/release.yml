@@ -65,8 +65,10 @@ jobs:
           cp build/linux/WITS-Deploy-*-Linux-x86_64.tar.gz build/linux/WITS-Deploy-*-Linux-x86_64.tar.gz.sha256 out/
           critical=""
           [ -f docs/release-notes/critical-below-app.txt ] && critical=$(tr -d '[:space:]' < docs/release-notes/critical-below-app.txt)
+          git archive --format=zip --prefix="wits-deploy-$version/" -o "out/WITS-Deploy-$version-source.zip" HEAD
           python scripts/release-signing.py manifest --kind app --version "$version" ${critical:+--critical-below "$critical"} \
-            --asset "linux-x86_64=$(ls out/WITS-Deploy-*-Linux-x86_64.tar.gz)" --out out/release-manifest.json
+            --asset "linux-x86_64=$(ls out/WITS-Deploy-*-Linux-x86_64.tar.gz)" \
+            --asset "source=out/WITS-Deploy-$version-source.zip" --out out/release-manifest.json
           python scripts/release-signing.py sign out/release-manifest.json
           prerelease=""
           case "$version" in *-dev*|*-rc*) prerelease="--prerelease" ;; esac

@@ -83,6 +83,13 @@ The app and the firmware have separate versions and separate releases; see
    run of the app build; it builds the firmware from source, so it needs the bundled firmware version to
    equal `src/firmware_version.h`.
 
+### Development snapshots
+
+Every push to `main` also runs the **Snapshot** workflow, which signs a source archive of the commit and replaces
+the rolling `snapshot` pre-release (about a minute; no firmware or binaries are built). That is how a fix pushed
+to `main` reaches a Windows tester quickly: they choose **Check for updates…** with **Include development
+builds** ticked. See [release signing](RELEASE-SIGNING.md#source-updates-and-development-snapshots-run-from-source-installs).
+
 ### Documentation checklist
 
 `scripts/check-docs.py` fails the tests and the Release workflow if the version files disagree, the

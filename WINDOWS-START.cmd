@@ -43,9 +43,29 @@ copy /y requirements-release.txt ".venv\installed-requirements.txt" >nul
 :start_app
 echo.
 echo Starting WITS Deploy. Keep this window open while you use the app.
+rem Tells the app this launcher can apply updates for it (the app exits with code 75 to ask for one).
+set "WITS_DEPLOY_LAUNCHER=windows-cmd"
 ".venv\Scripts\python.exe" run.py
-if errorlevel 1 goto app_failed
-exit /b 0
+set "APP_EXIT=%errorlevel%"
+if "%APP_EXIT%"=="0" exit /b 0
+if "%APP_EXIT%"=="75" goto apply_update
+rem A version that was just installed and never confirmed it runs is rolled back.
+if exist ".update\unconfirmed" goto rollback_update
+goto app_failed
+
+:apply_update
+echo.
+echo Installing the update...
+".venv\Scripts\python.exe" apply_update.py apply
+if errorlevel 2 goto check_packages
+if errorlevel 1 goto failed
+goto check_packages
+
+:rollback_update
+echo.
+echo The updated version did not start, so the previous version is being restored...
+".venv\Scripts\python.exe" apply_update.py rollback
+goto check_packages
 
 :not_extracted
 echo The program files were not found next to this script.

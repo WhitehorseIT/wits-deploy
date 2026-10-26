@@ -65,6 +65,30 @@ marker, rebuilds KDE's menu cache and moves the menu and sign-in shortcuts to it
 previous copy is so you can delete it. A crash after that point is never rolled back. Updates need a confirmation and
 are blocked while a board is armed or typing.
 
+## Source updates and development snapshots (run-from-source installs)
+
+Windows runs the app from Python, so it updates from a signed **source archive**, not a binary:
+
+- **Releases:** every app release also carries `WITS-Deploy-<version>-source.zip`, listed in its signed
+  manifest under the file label `source`.
+- **Development snapshots:** the **Snapshot** workflow runs on every push to `main` (about a minute: no
+  firmware or binaries are built). It signs a source archive of that commit and publishes it as the rolling
+  pre-release tagged `snapshot`. Its manifest has `kind: source`, the full `commit` and a `sequence`
+  (the workflow run number). The app refuses a snapshot with a lower sequence than one it has already seen,
+  and a snapshot whose signature or file checksum does not verify.
+- **In the app:** **Check for updates…** compares the newest release (and, with **Include development
+  builds** ticked, the newest snapshot) with this copy and installs the one that applies. Releases stay the
+  default; development builds are opt-in.
+
+How an update is installed (started with `WINDOWS-START.cmd`): the app downloads the archive, verifies its size
+and SHA-256 against the signed manifest, and unpacks only the archive's `desktop` folder into
+`desktop\.update\staged`. It then exits with code 75. The launcher runs `apply_update.py`, which moves the new
+files into place (keeping the old ones in `.update\previous`) while the app is not running, re-checks the
+Python packages (the requirements may have changed) and starts the app again. If the new version fails before it
+confirms itself (about 15 seconds after starting), the launcher restores the previous files. `.venv`, `logs`,
+`apply_update.py` and `WINDOWS-START.cmd` itself are never replaced by an update. If those change, download a fresh
+copy once.
+
 ## Manifest compatibility
 
 Installed apps validate every manifest they see, and one they reject is treated as unsigned (no

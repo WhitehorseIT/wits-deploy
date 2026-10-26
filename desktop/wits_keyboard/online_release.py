@@ -22,6 +22,7 @@ DOWNLOAD_BASE = "https://github.com/WhitehorseIT/wits-deploy/releases/download"
 RELEASES_URL = "https://api.github.com/repos/WhitehorseIT/wits-deploy/releases?per_page=50"
 # The app and the firmware are released separately, each with its own tag prefix and signed manifest.
 KINDS = {"app": "v", "firmware": "fw-v"}
+SNAPSHOT_TAG = "snapshot"  # one rolling pre-release holding the signed source of the latest commit on main
 MANIFEST_NAME, SIGNATURE_NAME = "release-manifest.json", "release-manifest.json.sig"
 MAX_UNPACKED_BYTES, MAX_MEMBERS = 64 * 1024 * 1024, 200
 
@@ -32,10 +33,12 @@ class SignedRelease:
     critical_below: str | None
     assets: dict
     kind: str = "app"
+    commit: str | None = None      # snapshots only: the commit the source archive was made from
+    sequence: int | None = None    # snapshots only: increases with every published snapshot
 
     @property
     def tag(self) -> str:
-        return KINDS[self.kind] + self.version
+        return SNAPSHOT_TAG if self.kind == "source" else KINDS[self.kind] + self.version
 
     def asset_url(self, label: str) -> str:
         return f"{DOWNLOAD_BASE}/{self.tag}/{self.assets[label]['name']}"
@@ -78,6 +81,19 @@ class TrustState:
         value = table.get(kind) or (state.get("highest_version") if kind == "app" else None)  # older state file
         return value if isinstance(value, str) and parse_version(value) else None
 
+    def snapshot_sequence(self) -> int:
+        value = self.load().get("snapshot_sequence")
+        return value if type(value) is int and value >= 0 else 0
+
+    def record_snapshot(self, sequence: int, added_keys=()) -> None:
+        state = self.load()
+        state["snapshot_sequence"] = max(self.snapshot_sequence(), sequence)
+        state["keys"] = sorted({*state.get("keys", []), *added_keys})
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        os.replace(temporary, self.path)
+
     def record(self, version: str, added_keys, kind: str = "app") -> None:
         state = self.load()
         highest = self.highest(kind)
@@ -109,6 +125,24 @@ def fetch_signed(version: str, urlopen=urllib.request.urlopen, state: TrustState
         raise SignatureError("Refusing an older release than one already seen (possible downgrade)")
     state.record(data["version"], data.get("add_keys", []), kind)
     return SignedRelease(data["version"], data.get("critical_below"), data["assets"], kind)
+
+
+def fetch_snapshot(urlopen=urllib.request.urlopen, state: TrustState | None = None) -> SignedRelease:
+    """Download and verify the newest source snapshot. Raises SignatureError (or OSError offline)."""
+    state = state or TrustState()
+    base = f"{DOWNLOAD_BASE}/{SNAPSHOT_TAG}"
+    manifest_bytes = _read(f"{base}/{MANIFEST_NAME}", 64 * 1024, urlopen)
+    signature = _read(f"{base}/{SIGNATURE_NAME}", 1024, urlopen).decode("ascii", "replace")
+    data = verify_manifest(manifest_bytes, signature, state.keys())
+    if data.get("kind") != "source" or "source" not in data["assets"]:
+        raise SignatureError("The signed manifest is not a source snapshot")
+    if data.get("sequence") is None or not data.get("commit"):
+        raise SignatureError("The snapshot manifest lacks its commit or sequence")
+    if data["sequence"] < state.snapshot_sequence():
+        raise SignatureError("Refusing an older snapshot than one already seen (possible downgrade)")
+    state.record_snapshot(data["sequence"], data.get("add_keys", []))
+    return SignedRelease(data["version"], data.get("critical_below"), data["assets"], "source",
+                         data["commit"], data["sequence"])
 
 
 def fetch_listing(urlopen=urllib.request.urlopen) -> list[str] | None:

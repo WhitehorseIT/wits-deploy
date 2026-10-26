@@ -24,6 +24,22 @@ class WindowsStartScriptTests(unittest.TestCase):
         for needed in ("requirements-release.txt", "import PySide6", "py -3", "pause"):
             self.assertIn(needed, self.text)
 
+    def test_it_applies_a_requested_update_and_rolls_back_an_unconfirmed_one(self):
+        text = self.text
+        self.assertIn('WITS_DEPLOY_LAUNCHER=windows-cmd', text)
+        self.assertIn('"%APP_EXIT%"=="75"', text)
+        self.assertIn("apply_update.py apply", text)
+        self.assertIn("apply_update.py rollback", text)
+        self.assertIn('exist ".update\\unconfirmed"', text)
+        # after applying or rolling back it must re-check the packages (requirements may have changed) and restart
+        for label in (":apply_update", ":rollback_update"):
+            block = text[text.index(label):]
+            self.assertIn("goto check_packages", block.split("\n\n")[0])
+
+    def test_the_launcher_never_replaces_itself(self):
+        # cmd reads a running batch file as it goes, so an update must not rewrite this file
+        self.assertNotIn("WINDOWS-START.cmd", __import__("re").sub(r"(?m)^(echo|rem) .*$", "", self.text))
+
     def test_old_launcher_names_are_gone(self):
         root = SCRIPT.parent
         self.assertFalse((root / "desktop" / "SETUP-WINDOWS.cmd").exists())

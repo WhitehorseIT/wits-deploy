@@ -91,6 +91,10 @@ the PIN into its prompt. If that does not work, pair the board in Windows **Sett
 first and then connect in the app. Pairing from inside the app on Windows is new and still being tested;
 see the [desktop guide](desktop/README.md).
 
+To update, choose **Check for updates…** in the app (started with `WINDOWS-START.cmd`). It installs a newer
+release, or with **Include development builds** ticked the newest build of the latest changes, after checking
+it against the project's signing key, then restarts the app.
+
 ### From source (any platform)
 
 ```bash

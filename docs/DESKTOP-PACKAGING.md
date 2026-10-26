@@ -52,6 +52,15 @@ and `WINDOWS-START.cmd` at the top of the repository. CI still builds a Windows 
 an artifact of the **Desktop binaries** workflow for testing. It contains `WITS-Deploy.exe` and
 `INSTALL-SHORTCUT.cmd` (Start menu shortcut, or `--autostart` for sign-in).
 
+## Updating a Windows (run-from-Python) install
+
+Choose **Check for updates…** in the app. It looks for the newest signed release and, if you tick **Include
+development builds**, the newest signed snapshot of `main`, and offers an update when one is newer than the copy
+you are running. The app must have been started with `WINDOWS-START.cmd`, which is what installs the update and
+restarts the app; the dialog says so if it was not. The update itself, its checks and its rollback are described in
+[release signing](RELEASE-SIGNING.md#source-updates-and-development-snapshots-run-from-source-installs).
+The title bar shows the exact build (for example `0.2.0-dev24 (build 38b38b9)`) so you can see which code is running.
+
 ## Source installs and shortcuts
 
 On Linux, from the repository root:

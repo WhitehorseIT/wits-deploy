@@ -1,0 +1,43 @@
+name: Snapshot
+# On every push to main: sign a source archive of that commit and publish it as the rolling "snapshot"
+# pre-release. The desktop app's "Include development builds" option installs it (no firmware or binaries are
+# built, so this takes about a minute).
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install "cryptography>=50,<51"
+      - name: Sign and publish the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WITS_RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$WITS_RELEASE_SIGNING_KEY" ] || { echo "The RELEASE_SIGNING_KEY secret is not set." >&2; exit 1; }
+          sha=$(git rev-parse HEAD)
+          version=$(python -c "import re;print(re.search(r'__version__ = \"(.*?)\"', open('desktop/wits_keyboard/__init__.py').read()).group(1))")
+          mkdir out
+          git archive --format=zip --prefix="wits-deploy-${sha:0:7}/" -o out/WITS-Deploy-source.zip HEAD
+          python scripts/release-signing.py manifest --kind source --version "$version" --commit "$sha" \
+            --sequence "$GITHUB_RUN_NUMBER" --asset "source=out/WITS-Deploy-source.zip" --out out/release-manifest.json
+          python scripts/release-signing.py sign out/release-manifest.json
+          gh release delete snapshot --cleanup-tag --yes || true
+          gh release create snapshot --prerelease --target "$sha" --title "Development snapshot ${sha:0:7}" \
+            --notes "Signed source of commit ${sha:0:7} (app version $version). Installed by Check for updates with Include development builds ticked; not a release." \
+            out/*

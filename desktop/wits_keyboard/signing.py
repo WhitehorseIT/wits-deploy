@@ -73,8 +73,14 @@ def verify_signature(data: bytes, signature_text: str, keys) -> str:
 def validate_manifest(data) -> dict:
     if not isinstance(data, dict) or data.get("schema") != 1 or data.get("product") != "wits-deploy":
         raise SignatureError("Unsupported release manifest")
-    if data.get("kind", "app") not in ("app", "firmware"):
+    if data.get("kind", "app") not in ("app", "firmware", "source"):
         raise SignatureError("Invalid release kind")
+    commit = data.get("commit")
+    if commit is not None and (not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{7,40}", commit)):
+        raise SignatureError("Invalid commit id")
+    sequence = data.get("sequence")
+    if sequence is not None and (type(sequence) is not int or not 0 <= sequence < 1 << 40):
+        raise SignatureError("Invalid snapshot sequence")
     version = data.get("version")
     if not isinstance(version, str) or parse_version(version) is None:
         raise SignatureError("Invalid release version")

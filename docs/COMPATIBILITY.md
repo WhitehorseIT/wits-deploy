@@ -37,7 +37,8 @@ future apps and the reverse. These rules apply to the firmware 1.x series.
 
 ## Release manifests
 
-Signed manifests are schema 1 with a `kind` of `app` or `firmware`. Fields may be added, and apps
+Signed manifests are schema 1 with a `kind` of `app`, `firmware` or `source` (a development snapshot, which also
+carries the `commit` and a growing `sequence`). Fields may be added, and apps
 ignore fields and file labels they do not know. A release must not add a new file label while older
 apps that would reject it still need to update to that release (see
 [release signing](RELEASE-SIGNING.md#manifest-compatibility)). Signing keys rotate through the manifest's

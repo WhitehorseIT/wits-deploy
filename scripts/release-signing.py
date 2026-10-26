@@ -48,6 +48,12 @@ def manifest(args):
                          "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
     data = {"schema": 1, "product": "wits-deploy", "kind": args.kind, "version": args.version,
             "critical_below": args.critical_below or None, "assets": assets}
+    if args.commit:
+        data["commit"] = args.commit
+    if args.sequence is not None:
+        data["sequence"] = args.sequence
+    if args.kind == "source" and (not args.commit or args.sequence is None):
+        sys.exit("A source snapshot needs --commit and --sequence.")
     if args.add_key:
         data["add_keys"] = args.add_key
     signing.validate_manifest(data)
@@ -80,8 +86,10 @@ def main():
     p.add_argument("--key-file", default=str(DEFAULT_KEY))
     p.set_defaults(run=keygen)
     p = commands.add_parser("manifest")
-    p.add_argument("--kind", choices=("app", "firmware"), required=True,
-                   help="app releases are tagged vX, firmware releases fw-vX")
+    p.add_argument("--kind", choices=("app", "firmware", "source"), required=True,
+                   help="app releases are tagged vX, firmware releases fw-vX, source snapshots 'snapshot'")
+    p.add_argument("--commit", help="source snapshots: the full commit id")
+    p.add_argument("--sequence", type=int, help="source snapshots: a number that grows with every snapshot")
     p.add_argument("--version", required=True)
     p.add_argument("--critical-below")
     p.add_argument("--add-key", action="append")

@@ -125,6 +125,12 @@ mode and throughput since the last refresh.
 
 ## Firmware and app updates
 
+- **Check for updates…** (next to the board list's heading): looks for the newest signed release, the newest
+  firmware and, if you tick **Include development builds**, the newest signed snapshot of the latest changes. On
+  a run-from-source install started with `WINDOWS-START.cmd` it downloads, verifies and installs the update, then
+  restarts the app, rolling back automatically if the new version fails to start. On the packaged Linux build it
+  hands over to **Update app…** below. The title bar shows the exact build, for example
+  `0.2.0-dev24 (build 38b38b9)`.
 - **OTA Update…** (Bluetooth): highlight one connected, authenticated, disarmed board. The app uses
   the board's model to select the image. Choose **Download latest firmware** (signed, verified), use
   the bundled firmware, or pick a release `.ota.json`. Bluetooth shares airtime between boards, so

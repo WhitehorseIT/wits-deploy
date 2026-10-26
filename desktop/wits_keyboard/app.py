@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, protocol, version_label
 from .controller import DiscoveredBoard, KeyboardController
-from . import app_update, online_release, release_check
+from . import app_update, online_release, release_check, source_update
 from .storage_stats import summarize as summarize_storage_io
 from .logging_config import LOG_PATH, safe_error
 
@@ -283,6 +283,7 @@ class MainWindow(QMainWindow):
         self.auto_connect_preferences: set[str] = set()
         self.latest_firmware = release_check.bundled_latest()
         self.closing_notice_shown = False
+        self.requested_exit_code = 0   # 75 asks WINDOWS-START.cmd to install a staged update and restart
         self.signed_app = None       # newest app release whose signature verified; enables app updates
         self.signed_firmware = None  # newest firmware release whose signature verified; enables online firmware
         self._auto_connect_restore: set[str] = set()  # boards whose Auto-connect is off only during an update
@@ -468,6 +469,10 @@ class MainWindow(QMainWindow):
         title_row = QHBoxLayout()
         title_row.addWidget(title)
         title_row.addStretch(1)
+        self.check_updates_button = QPushButton("Check for updates…")
+        self.check_updates_button.setToolTip("Look for a newer release, firmware or development build and install it")
+        self.check_updates_button.clicked.connect(self._check_for_updates)
+        title_row.addWidget(self.check_updates_button)
         self.app_update_button = QPushButton("Update app…")
         self.app_update_button.setToolTip("A newer, signed version of WITS Deploy is available")
         self.app_update_button.clicked.connect(self._update_app)
@@ -1138,6 +1143,33 @@ class MainWindow(QMainWindow):
             self.app_update_button.setText(f"Update app to {self.signed_app.version}…")
             self._log(f"App update available: {self.signed_app.version}")
 
+    def _check_for_updates(self) -> None:
+        from .runtime import frozen
+        from .update_check_dialog import UpdateCheckDialog
+        dialog = UpdateCheckDialog(self.settings, self, packaged_linux=frozen() and sys.platform == "linux")
+        try:
+            dialog.exec()
+            requested = dialog.install_requested
+        finally:
+            dialog.deleteLater()
+        if requested == "app":
+            self._update_app()
+        elif requested == "source":
+            self._restart_for_update()
+
+    def _restart_for_update(self) -> None:
+        """The update is already downloaded and verified; close so the launcher can install it."""
+        busy = [self.items[a].text(1) for a, state in self.states.items()
+                if a in self.items and (state.get("armed") or state.get("typing"))]
+        if busy:
+            QMessageBox.information(self, "Boards are busy",
+                                    f"Disarm {', '.join(busy)}, then choose Check for updates again; "
+                                    "the update is already downloaded.")
+            return
+        logger.info("Closing to install a staged update")
+        self.requested_exit_code = source_update.UPDATE_EXIT_CODE
+        self.close()
+
     def _update_app(self) -> None:
         from .app_update_dialog import AppUpdateDialog
         busy = [self.items[a].text(1) for a, state in self.states.items()
@@ -1602,6 +1634,9 @@ class MainWindow(QMainWindow):
 
 
 def _confirm_update(window: "MainWindow") -> None:
+    note = source_update.confirm_started()
+    if note:
+        window._log(f"{note}. The previous files were removed.")
     previous = app_update.confirm_started()
     if previous:
         window._log(f"Updated to {__version__}. The previous version is still in {previous}; "
@@ -1618,5 +1653,9 @@ def main() -> int:
     window = MainWindow()
     window.show()
     window.start_release_check()
+    note = source_update.rolled_back_note()
+    if note:
+        window._log(note)
     QTimer.singleShot(15000, lambda: _confirm_update(window))
-    return app.exec()
+    code = app.exec()
+    return window.requested_exit_code or code

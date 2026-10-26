@@ -282,3 +282,111 @@ class ReleaseScriptTests(unittest.TestCase):
             fw_data = (root / "fw.json").read_bytes()
             self.assertEqual(signing.verify_manifest(fw_data, signing.sign(PRIVATE, fw_data), [PUBLIC])["kind"], "firmware")
             self.assertNotEqual(run("manifest", "--version", "1.0.0", "--asset", "firmware=x").returncode, 0)  # --kind required
+
+
+class SnapshotManifestTests(unittest.TestCase):
+    ENTRY = {"name": "WITS-Deploy-source.zip", "size": 10, "sha256": "0" * 64}
+
+    def manifest(self, **extra):
+        return {"schema": 1, "product": "wits-deploy", "kind": "source", "version": "0.2.0-dev24",
+                "assets": {"source": self.ENTRY}, **extra}
+
+    def test_a_snapshot_manifest_carries_a_commit_and_a_sequence(self):
+        data = signing.validate_manifest(self.manifest(commit="87c1e18", sequence=42))
+        self.assertEqual((data["commit"], data["sequence"]), ("87c1e18", 42))
+
+    def test_bad_commits_and_sequences_are_refused(self):
+        for extra in ({"commit": "not-a-hash"}, {"commit": "ABCDEF1"}, {"commit": 5},
+                      {"sequence": -1}, {"sequence": "7"}, {"sequence": True}):
+            with self.subTest(extra=extra):
+                with self.assertRaises(SignatureError):
+                    signing.validate_manifest(self.manifest(**extra))
+
+    def test_unknown_kinds_are_still_refused(self):
+        with self.assertRaises(SignatureError):
+            signing.validate_manifest({**self.manifest(), "kind": "nightly"})
+
+
+class SnapshotFetchTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.state = online.TrustState(Path(self.directory.name))
+        patcher = unittest.mock.patch.object(online, "RELEASE_PUBLIC_KEYS", (PUBLIC,))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def publish(self, files, sequence=5, commit="87c1e18", private=PRIVATE, **extra):
+        archive = b"PK source"
+        manifest = {"schema": 1, "product": "wits-deploy", "kind": "source", "version": "0.2.0-dev24",
+                    "commit": commit, "sequence": sequence,
+                    "assets": {"source": {"name": "WITS-Deploy-source.zip", "size": len(archive),
+                                          "sha256": hashlib.sha256(archive).hexdigest()}}, **extra}
+        data = json.dumps(manifest, sort_keys=True).encode()
+        base = f"{online.DOWNLOAD_BASE}/snapshot"
+        files[f"{base}/release-manifest.json"] = data
+        files[f"{base}/release-manifest.json.sig"] = signing.sign(private, data).encode()
+        files[f"{base}/WITS-Deploy-source.zip"] = archive
+        return archive
+
+    def test_the_newest_signed_snapshot_is_found(self):
+        files = {}
+        self.publish(files, sequence=7, commit="abcdef1")
+        found = online.fetch_snapshot(FakeNet(files), self.state)
+        self.assertEqual((found.kind, found.tag, found.commit, found.sequence), ("source", "snapshot", "abcdef1", 7))
+        self.assertTrue(found.asset_url("source").endswith("/snapshot/WITS-Deploy-source.zip"))
+
+    def test_a_snapshot_signed_with_another_key_or_missing_fields_is_refused(self):
+        files = {}
+        self.publish(files, private=OTHER_PRIVATE)
+        with self.assertRaises(SignatureError):
+            online.fetch_snapshot(FakeNet(files), self.state)
+        files = {}
+        self.publish(files)
+        data = json.loads(files[f"{online.DOWNLOAD_BASE}/snapshot/release-manifest.json"])
+        del data["commit"]
+        raw = json.dumps(data, sort_keys=True).encode()
+        files[f"{online.DOWNLOAD_BASE}/snapshot/release-manifest.json"] = raw
+        files[f"{online.DOWNLOAD_BASE}/snapshot/release-manifest.json.sig"] = signing.sign(PRIVATE, raw).encode()
+        with self.assertRaises(SignatureError):
+            online.fetch_snapshot(FakeNet(files), self.state)
+
+    def test_an_older_snapshot_is_refused_after_a_newer_one_was_seen(self):
+        files = {}
+        self.publish(files, sequence=9)
+        online.fetch_snapshot(FakeNet(files), self.state)
+        files = {}
+        self.publish(files, sequence=4)
+        with self.assertRaises(SignatureError):
+            online.fetch_snapshot(FakeNet(files), self.state)
+        self.assertEqual(self.state.snapshot_sequence(), 9)
+
+    def test_an_app_manifest_cannot_pose_as_a_snapshot(self):
+        files = {}
+        publish(files, "0.2.0-dev19")  # an ordinary signed app release...
+        base = f"{online.DOWNLOAD_BASE}/snapshot"
+        for name in ("release-manifest.json", "release-manifest.json.sig"):  # ...served under the snapshot tag
+            files[f"{base}/{name}"] = files[f"{online.DOWNLOAD_BASE}/v0.2.0-dev19/{name}"]
+        with self.assertRaises(SignatureError):
+            online.fetch_snapshot(FakeNet(files), self.state)
+
+
+class SnapshotScriptTests(unittest.TestCase):
+    def test_the_snapshot_manifest_the_workflow_builds_is_accepted_by_the_app(self):
+        import os
+        import subprocess
+        import sys
+        script = Path(__file__).resolve().parents[2] / "scripts" / "release-signing.py"
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "WITS-Deploy-source.zip").write_bytes(b"PK zip")
+            run = lambda *a: subprocess.run([sys.executable, str(script), *a], cwd=root, capture_output=True, text=True,
+                                            env={**os.environ, "WITS_RELEASE_SIGNING_KEY": PRIVATE})
+            made = run("manifest", "--kind", "source", "--version", "0.2.0-dev24", "--commit", "a" * 40,
+                       "--sequence", "17", "--asset", "source=WITS-Deploy-source.zip", "--out", "m.json")
+            self.assertEqual(made.returncode, 0, made.stderr)
+            data = (root / "m.json").read_bytes()
+            manifest = signing.verify_manifest(data, signing.sign(PRIVATE, data), [PUBLIC])
+            self.assertEqual((manifest["kind"], manifest["sequence"], manifest["commit"]), ("source", 17, "a" * 40))
+            self.assertNotEqual(run("manifest", "--kind", "source", "--version", "0.2.0-dev24", "--asset",
+                                    "source=WITS-Deploy-source.zip", "--out", "n.json").returncode, 0)  # needs commit+sequence

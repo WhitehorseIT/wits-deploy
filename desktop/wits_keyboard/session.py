@@ -36,6 +36,11 @@ class BoardState:
     last_error: str = ""
 
 
+HEARTBEAT_INTERVAL_S = 5.0   # how often an idle, connected board is checked
+HEARTBEAT_TIMEOUT_S = 4.0    # how long one check may take
+HEARTBEAT_MISSES = 2         # consecutive failed checks before the link is declared lost
+
+
 class BoardSession:
     def __init__(
         self,
@@ -56,6 +61,8 @@ class BoardSession:
         self.sequences = protocol.SequenceCounter()
         self.pending: dict[int, asyncio.Future[protocol.StatusFrame]] = {}
         self.request_lock = asyncio.Lock()
+        self._heartbeat_task: asyncio.Task | None = None
+        self._release_tasks: set[asyncio.Task] = set()
         self.connecting = False
         self.key_interval_ms = protocol.DEFAULT_KEY_INTERVAL_MS
         self.linux_diagnostics: Any = None
@@ -173,6 +180,7 @@ class BoardSession:
                 except Exception as error:
                     logger.debug("BlueZ snapshot unavailable address=%s error=%s",
                                  self.address, safe_error(error))
+            self._start_heartbeat()
         except asyncio.CancelledError:
             logger.info("Connect canceled address=%s", self.address)
             client = self.client
@@ -260,8 +268,14 @@ class BoardSession:
         logger.info("Disconnect requested address=%s", self.address)
         client = self.client
         self.client = None
-        if client is not None and client.is_connected:
-            await client.disconnect()
+        self._stop_heartbeat()
+        if client is not None:
+            # Even if the stack already reports the link as down, disconnect: that is what makes Windows
+            # release its maintained session.
+            try:
+                await client.disconnect()
+            except Exception as error:
+                logger.debug("Disconnect address=%s: %s", self.address, safe_error(error))
         self._mark_disconnected("Disconnected")
         await self._close_diagnostics()
 
@@ -275,8 +289,67 @@ class BoardSession:
             )
             return
         logger.warning("Unexpected BLE disconnect callback address=%s", self.address)
-        self.client = None
+        client, self.client = self.client, None
+        self._stop_heartbeat()
         self._mark_disconnected("Connection lost; board marked disarmed")
+        self._release(client)
+
+    def _release(self, client: Any) -> None:
+        """Tell the OS stack to let go of a dead connection. Windows keeps a connection "maintained" until its
+        client disconnects, and quietly re-links the board behind the app's back; the board then thinks it is
+        connected, stops advertising, and the app never sees it to reconnect."""
+        if client is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        async def release() -> None:
+            try:
+                await asyncio.wait_for(client.disconnect(), 5.0)
+            except Exception as error:
+                logger.debug("Releasing the dead connection address=%s: %s", self.address, safe_error(error))
+
+        task = loop.create_task(release())
+        self._release_tasks.add(task)
+        task.add_done_callback(self._release_tasks.discard)
+
+    def _start_heartbeat(self) -> None:
+        self._stop_heartbeat()
+        self._heartbeat_task = asyncio.get_running_loop().create_task(self._heartbeat(), name=f"heartbeat-{self.address}")
+
+    def _stop_heartbeat(self) -> None:
+        task, self._heartbeat_task = self._heartbeat_task, None
+        if task is not None and not task.done() and task is not asyncio.current_task():
+            task.cancel()
+
+    async def _heartbeat(self) -> None:
+        """Quietly ping an idle board so a dead link is noticed in seconds, not whenever the OS gives up."""
+        misses = 0
+        while True:
+            await asyncio.sleep(HEARTBEAT_INTERVAL_S)
+            client = self.client
+            if client is None or not self.state.connected or not self.state.authenticated:
+                return
+            if self.request_lock.locked() or self.pending:
+                misses = 0  # typing, an update or another request is in progress and will notice a dead link itself
+                continue
+            try:
+                async with asyncio.timeout(HEARTBEAT_TIMEOUT_S):
+                    await self.ping(quiet=True)
+                misses = 0
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                misses += 1
+                logger.info("Heartbeat missed address=%s count=%d error=%s", self.address, misses, safe_error(error))
+                if misses >= HEARTBEAT_MISSES:
+                    logger.warning("Board stopped answering address=%s; treating the link as lost", self.address)
+                    lost, self.client = self.client, None
+                    self._mark_disconnected("The board stopped answering; connection marked lost")
+                    self._release(lost)
+                    return
 
     def _mark_disconnected(self, message: str) -> None:
         logger.info(
@@ -285,6 +358,7 @@ class BoardSession:
             message,
             len(self.pending),
         )
+        self._stop_heartbeat()
         self.state = BoardState()
         for future in tuple(self.pending.values()):
             if not future.done():
@@ -416,12 +490,15 @@ class BoardSession:
         )
         return status
 
-    async def ping(self) -> float:
+    async def ping(self, quiet: bool = False) -> float:
         sequence = self.sequences.take()
         frame = protocol.command_frame(protocol.OPCODE_PING, sequence)
         started = asyncio.get_running_loop().time()
         await self._request(frame, sequence)
         elapsed_ms = (asyncio.get_running_loop().time() - started) * 1000
+        if quiet:
+            logger.debug("Heartbeat address=%s elapsed_ms=%.1f", self.address, elapsed_ms)
+            return elapsed_ms
         logger.info("Ping address=%s elapsed_ms=%.1f", self.address, elapsed_ms)
         self._emit("ping", milliseconds=round(elapsed_ms))
         return elapsed_ms

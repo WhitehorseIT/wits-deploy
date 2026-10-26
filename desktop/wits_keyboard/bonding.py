@@ -23,3 +23,22 @@ async def has_saved_bond(device):
             finally:
                 native.close()
     raise RuntimeError("Automatic reconnect supports Windows and Linux")
+
+
+async def windows_link_is_up(address: str) -> bool:
+    """True if Windows already holds a live connection to this board (it reconnects "maintained" sessions by
+    itself, and a connected board stops advertising, so scanning alone would never see it)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        from winrt.windows.devices.bluetooth import BluetoothConnectionStatus, BluetoothLEDevice
+        async with asyncio.timeout(5):
+            native = await BluetoothLEDevice.from_bluetooth_address_async(int(address.replace(":", ""), 16))
+        if native is None:
+            return False
+        try:
+            return native.connection_status == BluetoothConnectionStatus.CONNECTED
+        finally:
+            native.close()
+    except Exception:
+        return False

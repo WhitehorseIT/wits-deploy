@@ -19,6 +19,21 @@ class AutoConnectTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.auto.stop()
 
+    async def test_a_board_windows_already_links_is_connected_directly_without_an_advertisement(self):
+        self.controller.devices["A"] = self.device
+        with patch("wits_keyboard.auto_connect.windows_link_is_up", AsyncMock(return_value=True)):
+            linked = await self.auto.unseen_but_linked({"A"}, {})
+        self.assertEqual(linked, [("A", self.device)])
+
+    async def test_boards_that_were_seen_or_are_not_linked_are_left_to_normal_scanning(self):
+        self.controller.devices["A"] = self.device
+        with patch("wits_keyboard.auto_connect.windows_link_is_up", AsyncMock(return_value=True)):
+            self.assertEqual(await self.auto.unseen_but_linked({"A"}, {"A": self.device}), [])  # advertised: normal path
+        with patch("wits_keyboard.auto_connect.windows_link_is_up", AsyncMock(return_value=False)):
+            self.assertEqual(await self.auto.unseen_but_linked({"A"}, {}), [])                  # not linked: keep waiting
+        with patch("wits_keyboard.auto_connect.windows_link_is_up", AsyncMock(return_value=True)):
+            self.assertEqual(await self.auto.unseen_but_linked({"B"}, {}), [])                  # no device object yet
+
     async def test_only_enabled_known_rows_connect_and_never_request_pairing(self):
         self.controller.connect = AsyncMock()
         await self.auto.attempt("B", self.device)

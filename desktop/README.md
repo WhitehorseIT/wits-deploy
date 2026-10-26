@@ -61,6 +61,12 @@ computer, or replacing a cleared bond, needs the board's physical pairing window
 A board's first ping must confirm authenticated state before it can send anything. GATT requests
 time out after ten seconds, and a disconnect ends a pending request immediately.
 
+While a board is connected and idle the app also checks it every five seconds with a quiet ping, and marks
+the connection lost after two missed replies, so a board that is switched off or out of range shows as
+disconnected within about fifteen seconds. When a connection is lost the app tells the operating system to
+let go of it (on Windows this stops it quietly re-linking the board, which would otherwise stop the board
+advertising and keep Auto-connect from finding it).
+
 ## Removing a board
 
 Highlight a board that is not working and choose **Remove**. After you confirm, the app disconnects it,

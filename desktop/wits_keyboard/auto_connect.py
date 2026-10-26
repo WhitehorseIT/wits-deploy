@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from . import protocol
-from .bonding import PairingRequired
+from .bonding import PairingRequired, windows_link_is_up
 from .logging_config import safe_error
 
 logger = logging.getLogger(__name__)
@@ -76,6 +76,16 @@ class AutoConnector:
                     pass
         return found
 
+    async def unseen_but_linked(self, candidates, found):
+        """Windows can hold a live link to a board that is therefore not advertising; connect to those directly."""
+        linked = []
+        for address in sorted(set(candidates) - set(found)):
+            device = self.controller.devices.get(address)
+            if device is not None and await windows_link_is_up(address):
+                logger.info("Windows already links %s without advertisements; connecting directly", address)
+                linked.append((address, device))
+        return linked
+
     async def attempt(self, address, device):
         if address not in self.eligible():
             return
@@ -118,6 +128,8 @@ class AutoConnector:
                     found = await self.discover(candidates)
                     failures = 0
                     for address, device in found.items():
+                        await self.attempt(address, device)
+                    for address, device in await self.unseen_but_linked(candidates, found):
                         await self.attempt(address, device)
                 except asyncio.CancelledError:
                     raise

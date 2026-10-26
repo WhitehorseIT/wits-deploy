@@ -180,6 +180,63 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(RuntimeError, "not found"):
                 await self.session.connect(allow_pairing=False)
 
+    async def test_an_unexpected_disconnect_releases_the_os_connection(self):
+        """Windows re-links a board behind the app's back until its client disconnects."""
+        released = []
+
+        class ReleasingClient(FakeClient):
+            async def disconnect(self):
+                released.append("disconnect")
+                await super().disconnect()
+
+        self.session.client_factory = ReleasingClient
+        with patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)):
+            await self.session.connect(allow_pairing=False)
+        self.session._on_disconnected(self.session.client)
+        await asyncio.sleep(0.05)
+        self.assertEqual(released, ["disconnect"])
+        self.assertFalse(self.session.state.connected)
+        self.assertIsNone(self.session.client)
+
+    async def test_a_board_that_stops_answering_is_marked_lost_within_a_few_checks(self):
+        class DeafClient(FakeClient):
+            answer = True
+
+            async def write_gatt_char(self, uuid, frame, response):
+                if self.answer:
+                    await super().write_gatt_char(uuid, frame, response)  # silence after this flips off
+
+        self.session.client_factory = DeafClient
+        with patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)), \
+                patch("wits_keyboard.session.HEARTBEAT_INTERVAL_S", 0.01), \
+                patch("wits_keyboard.session.HEARTBEAT_TIMEOUT_S", 0.05):
+            await self.session.connect(allow_pairing=False)
+            self.assertTrue(self.session.state.connected)
+            client = self.session.client
+            client.answer = False
+            for _ in range(100):
+                await asyncio.sleep(0.02)
+                if not self.session.state.connected:
+                    break
+        self.assertFalse(self.session.state.connected)
+        self.assertIsNone(self.session.client)
+        self.assertTrue(any(event[1] == "disconnected" for event in self.events))
+
+    async def test_heartbeats_are_quiet_and_do_not_interrupt_a_busy_session(self):
+        with patch("wits_keyboard.session.has_saved_bond", AsyncMock(return_value=True)), \
+                patch("wits_keyboard.session.HEARTBEAT_INTERVAL_S", 0.01):
+            await self.session.connect(allow_pairing=False)
+            pings_before = sum(1 for event in self.events if event[1] == "ping")
+            await asyncio.sleep(0.15)  # many heartbeats go by
+            pings_after = sum(1 for event in self.events if event[1] == "ping")
+            self.assertEqual(pings_before, pings_after)  # heartbeats never show up as "Ping acknowledged"
+            self.assertTrue(self.session.state.connected)
+            async with self.session.request_lock:  # a request in progress: no heartbeat is sent over it
+                writes = len(self.session.client.writes)
+                await asyncio.sleep(0.1)
+                self.assertEqual(len(self.session.client.writes), writes)
+            await self.session.disconnect()
+
     async def test_connect_requests_pairing_and_pings(self):
         await self.session.connect()
         self.assertTrue(self.session.state.connected)

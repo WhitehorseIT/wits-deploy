@@ -27,6 +27,19 @@ def desktop_entry():
             "StartupNotify=true\n")
 
 
+def refresh_existing():
+    """Point the menu and sign-in shortcuts that already exist at this install. Returns the files updated."""
+    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    entry, updated = desktop_entry(), []
+    for path in (data / "applications" / FILENAME, config / "autostart" / FILENAME):
+        if path.is_file():
+            path.write_text(entry, encoding="utf-8")
+            path.chmod(0o755)
+            updated.append(path)
+    return updated
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="write a shortcut here instead of installing in the app menu")

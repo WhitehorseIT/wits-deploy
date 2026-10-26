@@ -45,3 +45,14 @@ shipping a new key inside a manually installed app.
    before tagging; boards below it turn red.
 
 Manual signing is also possible: `scripts/release-signing.py manifest ...` then `... sign ...`.
+
+## App self-update (packaged Linux build)
+
+When a newer release has a verified signature, the board list shows **Update app to X…** (hidden for
+source installs and when the install folder is not writable). The app downloads the signed Linux
+archive, checks its size and SHA-256 against the manifest, unpacks it beside the running copy
+(in the same parent folder, for example `~/Apps`) and restarts into it. The running copy is never
+modified. If the new version exits within 25 seconds of starting, a small wrapper starts the previous
+version instead. After the new version has run for 15 seconds it moves the menu and sign-in shortcuts
+to itself, and notes where the previous copy is so you can delete it. Updates need a confirmation and
+are blocked while a board is armed or typing.

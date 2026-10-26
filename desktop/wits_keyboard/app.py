@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, protocol
 from .controller import DiscoveredBoard, KeyboardController
-from . import online_release, release_check
+from . import app_update, online_release, release_check
 from .storage_stats import summarize as summarize_storage_io
 from .logging_config import LOG_PATH, safe_error
 
@@ -374,7 +374,15 @@ class MainWindow(QMainWindow):
 
         title = QLabel("Devices")
         title.setStyleSheet("font-size: 17px; font-weight: 700;")
-        layout.addWidget(title)
+        title_row = QHBoxLayout()
+        title_row.addWidget(title)
+        title_row.addStretch(1)
+        self.app_update_button = QPushButton("Update app…")
+        self.app_update_button.setToolTip("A newer, signed version of WITS Deploy is available")
+        self.app_update_button.clicked.connect(self._update_app)
+        self.app_update_button.hide()
+        title_row.addWidget(self.app_update_button)
+        layout.addLayout(title_row)
 
         self.device_tree = QTreeWidget()
         self.device_tree.setHeaderLabels(("Target", "Device", "Board state", "Last result", "Auto-connect", "Firmware"))
@@ -956,11 +964,41 @@ class MainWindow(QMainWindow):
             self.signed_release = signed
             online = release_check.Latest(online.version, signed.critical_below)
         self.latest_firmware = release_check.newest(self.latest_firmware, online)
+        self._offer_app_update()
         self._log(f"Newest published firmware: {online.version}"
                   + (" (signature verified)" if signed is not None else " (no verified signature; online download unavailable)"))
         for address, item in self.items.items():
             if item.text(5):
                 self._show_firmware(address, item.text(5))
+
+    def _offer_app_update(self) -> None:
+        reason = app_update.unavailable_reason(self.signed_release)
+        self.app_update_button.setVisible(reason is None)
+        if reason is None:
+            self.app_update_button.setText(f"Update app to {self.signed_release.version}…")
+            self._log(f"App update available: {self.signed_release.version}")
+
+    def _update_app(self) -> None:
+        from .app_update_dialog import AppUpdateDialog
+        busy = [self.items[a].text(1) for a, state in self.states.items()
+                if a in self.items and (state.get("armed") or state.get("typing"))]
+        if busy:
+            QMessageBox.information(self, "Boards are busy",
+                                    f"Disarm {', '.join(busy)} before updating the app.")
+            return
+        release = self.signed_release
+        if release is None or app_update.unavailable_reason(release):
+            return
+        dialog = AppUpdateDialog(release, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.installed is not None:
+            try:
+                app_update.restart(dialog.installed)
+            except OSError as error:
+                self._log(f"Could not restart into the new version: {error}")
+                QMessageBox.warning(self, "Restart failed", f"The update is installed in {dialog.installed}, "
+                                    f"but the app could not restart itself: {error}")
+                return
+            self.close()
 
     def _restore_auto_connect(self) -> None:
         restore, self._auto_connect_restore = self._auto_connect_restore, set()
@@ -1342,6 +1380,13 @@ class MainWindow(QMainWindow):
         event.accept()
 
 
+def _confirm_update(window: "MainWindow") -> None:
+    previous = app_update.confirm_started()
+    if previous:
+        window._log(f"Updated to {__version__}. The previous version is still in {previous}; "
+                    "delete that folder when you are satisfied.")
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("WITS Deploy")
@@ -1352,4 +1397,5 @@ def main() -> int:
     window = MainWindow()
     window.show()
     window.start_release_check()
+    QTimer.singleShot(15000, lambda: _confirm_update(window))
     return app.exec()

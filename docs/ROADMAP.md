@@ -2,13 +2,16 @@
 
 Plans, not promises. Items move as hardware testing and releases dictate.
 
-## Next test build
+## Done
 
-- **Signed releases.** Release manifests and firmware images are signed in CI with an Ed25519 key;
-  the app and (later) tools verify them against a public key built into the app.
-- **Online firmware.** The desktop app fetches firmware for each board model from published
-  releases instead of requiring a bundled copy, keeping the bundled set as an offline baseline.
-- **Desktop self-update.** The app downloads a verified update and restarts itself.
+- **Signed releases and online firmware** (0.2.0-dev19): release manifests are signed in CI and the
+  app downloads and verifies firmware from published releases.
+- **Packaged Linux self-update** (0.2.0-dev20): see [release signing](RELEASE-SIGNING.md) and below.
+
+## Next
+
+- Self-update for Windows (run from Python) once Windows testing is done.
+- Optional automatic update checks with a quiet install window; today every update is confirmed.
 
 ## Platforms
 

@@ -44,7 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import __version__, protocol
+from . import __version__, protocol, version_label
 from .controller import DiscoveredBoard, KeyboardController
 from . import app_update, online_release, release_check
 from .storage_stats import summarize as summarize_storage_io
@@ -208,7 +208,7 @@ class AsyncRunner:
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle(f"WITS Deploy {__version__}")
+        self.setWindowTitle(f"WITS Deploy {version_label()}")
         self.resize(1180, 940)
 
         self.bridge = UiBridge()
@@ -360,7 +360,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
         root_layout = QVBoxLayout(root)
 
-        heading = QLabel(f"WITS Deploy Controller {__version__}")
+        heading = QLabel(f"WITS Deploy Controller {version_label()}")
         heading.setStyleSheet("font-size: 22px; font-weight: 700;")
         root_layout.addWidget(heading)
 

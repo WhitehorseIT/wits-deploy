@@ -12,7 +12,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
-from . import __version__
+from . import __version__, version_label
 from .runtime import log_directory
 
 LOG_DIRECTORY = log_directory()
@@ -126,7 +126,7 @@ def configure_logging() -> Path:
     logger.info("=" * 72)
     logger.info(
         "Starting WITS Deploy version=%s python=%s platform=%s",
-        __version__,
+        version_label(),
         platform.python_version(),
         platform.platform(),
     )

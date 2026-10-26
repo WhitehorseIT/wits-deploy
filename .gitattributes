@@ -1,3 +1,6 @@
 * text=auto
 *.sh text eol=lf
 *.cmd text eol=crlf
+
+# Git fills the build id into this file when GitHub builds a ZIP of the repository.
+desktop/wits_keyboard/_build.py export-subst

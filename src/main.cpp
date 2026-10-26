@@ -31,6 +31,7 @@
 #include "startup_trace.h"
 #include "firmware_update.h"
 #include "boot_mode.h"
+#include "fault_test.h"
 
 constexpr int LEFT_BUTTON_PIN = 0;  // IO00 / BOOT button
 constexpr int RIGHT_BUTTON_PIN = 47;
@@ -387,6 +388,9 @@ void updateProgramChord() {
 #endif
 
 void loop() {
+#ifdef WITS_FAULT_TEST
+  FaultTest::poll(hidMode);
+#endif
   if (hidMode) {
     FirmwareUpdate::loop();
     if (FirmwareUpdate::active()) {

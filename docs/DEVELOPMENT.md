@@ -46,6 +46,22 @@ The offscreen setting lets Qt tests run without opening application windows.
 Automated tests use simulated Bluetooth/USB devices and do not replace physical
 tests of flashing, boot behavior, or interrupted transfers.
 
+## Crash-fallback test build
+
+A crash or hang must start programming mode instead of looping as a keyboard (see `src/boot_mode.h`).
+Compile-time tests cover the rule; to check it on a real board, build the test-only firmware, which
+crashes on purpose 20 seconds after reaching HID mode, using a different fault on each run (a bad
+memory store, an interrupts-off hang caught by the interrupt watchdog, and `abort()`):
+
+```bash
+.venv-pio/bin/pio run -e tqtpro-faulttest -e waveshare7-faulttest -e waveshare147-faulttest
+```
+
+Package the three `firmware.bin` files as an app-only OTA release outside the repository, install it
+with **OTA Update…**, and confirm that every crash returns in PROGRAM mode and stays there. Holding HID
+starts the next fault kind. Recover the board with **USB Flash/Update… > Update working board**. The
+`-faulttest` environments are never released, and a normal build does not contain the fault code.
+
 ## Publish a release
 
 Releases are built, signed and published by GitHub Actions; see [release signing](RELEASE-SIGNING.md).

@@ -1,6 +1,6 @@
 """Native controller for WITS Deployment Keyboard devices."""
 
-__version__ = "0.2.0-dev24"
+__version__ = "0.2.0-dev25"
 
 
 def build_id() -> str:

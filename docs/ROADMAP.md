@@ -38,3 +38,27 @@ desktop app rather than replace it. The existing `web/` folder is an early keybo
 - Pair a board over Bluetooth as a keyboard as well as a controlled device.
 - Larger or faster USB storage needs different hardware (high-speed USB); see
   [the storage benchmark](STORAGE-BENCHMARK.md).
+
+## Related projects and ideas to borrow
+
+Other people are solving nearby problems. These notes are descriptions of their public pages, not tests of their
+work; check their own documentation and licenses before relying on anything here.
+
+- [Openterface KeyMod](https://www.crowdsupply.com/techxartisan/openterface-keymod) is a commercial USB dongle that
+  a phone controls over Bluetooth Low Energy (companion app for Android and iOS) as a keyboard, mouse, gamepad
+  and SSH link. It is a phone-first tool for controlling one machine; this project is desktop-first, controls
+  several boards and shares files from an SD card. Its app is announced as open source after its campaign.
+- [bluetooth-to-keyboard-input-esp32-s3-zero](https://github.com/ArtiomSu/bluetooth-to-keyboard-input-esp32-s3-zero)
+  is an ESP32-S3 Bluetooth-to-USB keyboard with Python desktop tools and an Android app, released under the
+  GPL-3.0. It adds an application-level encryption layer and flashes from a browser.
+
+Ideas worth considering, written as ideas only (this project is MIT licensed, so code from GPL projects must not be
+copied in; reading their documentation for ideas is fine):
+
+- **Keyboard layouts.** Typing assumes a US layout. A target-layout setting would make text come out right on
+  non-US computers.
+- **Replay protection.** Commands rely on the Bluetooth link's own encryption. A counter checked by the board
+  would make a captured command useless; it could arrive as an additive part of a later protocol version.
+- **First install from a browser.** A browser-based flasher would give beginners a no-install first flash,
+  alongside the app's USB flasher.
+- **Mouse input and a phone app,** which the Android and iOS item above already covers.

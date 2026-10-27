@@ -154,7 +154,8 @@ immediately.
 
 ## Diagnostic log
 
-Below the board list, **Copy log** puts the on-screen events on the clipboard, **Save logs…** writes a single
+Every log window has Copy and Save buttons: the USB flash output has **Copy output** and **Save output…**, and
+below the board list, **Copy log** puts the on-screen events on the clipboard, **Save logs…** writes a single
 ZIP (the events, the full debug logs, any crash traces and the app and system versions) to a place you
 choose, and **Clear log** empties the list. Send the ZIP when you ask for help; GATT payloads, and so typed
 text and PINs, are never in the logs.

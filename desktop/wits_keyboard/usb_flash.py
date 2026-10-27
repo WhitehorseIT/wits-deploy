@@ -105,7 +105,8 @@ class SerialFlasher:
                 table, metadata = root / "partitions.bin", root / "otadata.bin"
                 self.command("read-flash", "0x8000", "0x1000", str(table))
                 if table.read_bytes() != factory_image.data[0x8000:0x9000]:
-                    raise ValueError("Board partition layout differs from this release; use factory installation")
+                    raise ValueError("Board partition layout differs from this release: this board does not have the WITS flash "
+                                     "layout yet (it is new, blank or running other firmware); use factory installation")
                 self.command("read-flash", "0xe000", "0x2000", str(metadata))
                 target, metadata_offset, metadata_bytes = update_plan(metadata.read_bytes())
                 print(f"Writing inactive app{target} at {slots[target]:#x}; preserving current firmware and pairings.", flush=True)

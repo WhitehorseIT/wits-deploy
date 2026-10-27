@@ -9,6 +9,7 @@ from .firmware_update import BOARD_NAMES, load_release
 from .runtime import app_directory, worker_command
 from .firmware_bundle import bundled_manifest
 from .file_choice import choose_manifest
+from .log_actions import log_buttons
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,8 @@ class UsbFlashDialog(QDialog):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         layout.addWidget(self.log, 1)
+        layout.addLayout(log_buttons(self, self.log.toPlainText, "wits-usb-flash",
+                                     lambda message: self.description.setText(message)))
         self.bar = QProgressBar()
         layout.addWidget(self.bar)
         row = QHBoxLayout()
@@ -145,6 +148,13 @@ class UsbFlashDialog(QDialog):
         self.bar.setValue(100 if success else 0)
         self.description.setText("Firmware verified. Press RESET; the board starts in HID mode." if success else
                                  "USB flash failed. See the output below; keep the board connected for recovery.")
+        if not success and "partition layout differs" in self.log.toPlainText() and not self.mode.currentData():
+            # A new or blank board has no WITS layout, so only a factory install can work. Select it (the usual
+            # confirmation still appears before anything is written).
+            self.mode.setCurrentIndex(1)
+            self.description.setText("This board does not have the WITS flash layout yet (it is new, blank or running "
+                                     "other firmware). Install blank board / factory recovery is now selected; "
+                                     "click USB Flash/Update again to install it.")
         for widget in (self.model, self.port, self.refresh, self.mode, self.choose, self.flash, self.close_button):
             widget.setEnabled(True)
 
